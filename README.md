@@ -1,2 +1,6 @@
 # unity-raytracing
-Raytracing by compute shader in unity
+Raytracing renderer by compute shader in unity
+## Features
+### Megakernel path tracing
+### Wavefront path tracing
+### Physical Base Materials
