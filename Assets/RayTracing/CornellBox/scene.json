@@ -1,0 +1,423 @@
+{
+    "materials": [
+        {
+            "type": 0,
+            "name": "LightMaterial",
+            "assetPath": "Assets/RayTracing/CornellBox/Materials/LightMaterial.mat",
+            "shaderName": "RayTracing/AreaLight",
+            "baseColor": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "transmission": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "albedoTexture": "",
+            "normalTexture": "",
+            "fresnel": 0,
+            "roughnessU": 0.0,
+            "roughnessV": 0.0,
+            "K": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "eta": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "emission": {
+                "x": 20.700000762939454,
+                "y": 10.800000190734864,
+                "z": 2.759999990463257
+            }
+        },
+        {
+            "type": 0,
+            "name": "MatteWhite",
+            "assetPath": "Assets/RayTracing/Materials/MatteWhite.mat",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 1.0,
+                "y": 0.7454043626785278,
+                "z": 0.39675530791282656
+            },
+            "transmission": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "albedoTexture": "",
+            "normalTexture": "",
+            "fresnel": 0,
+            "roughnessU": 0.0,
+            "roughnessV": 0.0,
+            "K": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "eta": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "type": 0,
+            "name": "MatteGreen",
+            "assetPath": "Assets/RayTracing/Materials/MatteGreen.mat",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.10529984533786774,
+                "y": 0.37748903036117556,
+                "z": 0.07646989822387696
+            },
+            "transmission": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "albedoTexture": "",
+            "normalTexture": "",
+            "fresnel": 0,
+            "roughnessU": 0.0,
+            "roughnessV": 0.0,
+            "K": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "eta": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "type": 0,
+            "name": "MatteRed",
+            "assetPath": "Assets/RayTracing/Materials/MatteRed.mat",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 0.2158605307340622,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "transmission": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "albedoTexture": "",
+            "normalTexture": "",
+            "fresnel": 0,
+            "roughnessU": 0.0,
+            "roughnessV": 0.0,
+            "K": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "eta": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "type": 4,
+            "name": "RoughnessGlass",
+            "assetPath": "Assets/RayTracing/Materials/RoughnessGlass.mat",
+            "shaderName": "RayTracing/Uber",
+            "baseColor": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "transmission": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "albedoTexture": "",
+            "normalTexture": "",
+            "fresnel": 0,
+            "roughnessU": 0.003000000026077032,
+            "roughnessV": 0.003000000026077032,
+            "K": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "eta": {
+                "x": 1.5,
+                "y": 1.5,
+                "z": 1.5
+            },
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        }
+    ],
+    "entities": [
+        {
+            "name": "AreaLight",
+            "position": {
+                "x": -2.750401496887207,
+                "y": 5.486999988555908,
+                "z": -6.640178680419922
+            },
+            "scale": {
+                "x": 0.11999999731779099,
+                "y": 1.0,
+                "z": 0.10000000149011612
+            },
+            "rotation": {
+                "x": 0.00001001791224553017,
+                "y": 180.0,
+                "z": 180.0
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "",
+            "emission": {
+                "x": 20.700000762939454,
+                "y": 10.800000190734864,
+                "z": 2.759999990463257
+            }
+        },
+        {
+            "name": "object5",
+            "position": {
+                "x": -3.690840005874634,
+                "y": 0.8190122842788696,
+                "z": -5.883386611938477
+            },
+            "scale": {
+                "x": 0.009999999776482582,
+                "y": 0.009999999776482582,
+                "z": 0.009999999776482582
+            },
+            "rotation": {
+                "x": -7.016715055936217e-15,
+                "y": 195.207763671875,
+                "z": -8.530912980322018e-22
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "MatteWhite",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "object6",
+            "position": {
+                "x": -1.856766939163208,
+                "y": 1.649993896484375,
+                "z": -7.2989935874938969
+            },
+            "scale": {
+                "x": 0.009999999776482582,
+                "y": 0.009999999776482582,
+                "z": 0.009999999776482582
+            },
+            "rotation": {
+                "x": -4.616853452413814e-15,
+                "y": 162.08645629882813,
+                "z": 6.593550524498651e-15
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "MatteWhite",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "object2",
+            "position": {
+                "x": -5.530401706695557,
+                "y": 0.0,
+                "z": -4.0348005294799809
+            },
+            "scale": {
+                "x": 0.009999999776482582,
+                "y": 0.009999999776482582,
+                "z": 0.009999999776482582
+            },
+            "rotation": {
+                "x": -7.01670955022206e-15,
+                "y": 180.0,
+                "z": 0.0
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "MatteWhite",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "object3",
+            "position": {
+                "x": -5.530401706695557,
+                "y": 0.0,
+                "z": -4.0348005294799809
+            },
+            "scale": {
+                "x": 0.009999999776482582,
+                "y": 0.009999999776482582,
+                "z": 0.009999999776482582
+            },
+            "rotation": {
+                "x": -7.01670955022206e-15,
+                "y": 180.0,
+                "z": 0.0
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "MatteGreen",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "object4",
+            "position": {
+                "x": -5.530401706695557,
+                "y": 0.0,
+                "z": -4.0348005294799809
+            },
+            "scale": {
+                "x": 0.009999999776482582,
+                "y": 0.009999999776482582,
+                "z": 0.009999999776482582
+            },
+            "rotation": {
+                "x": -7.01670955022206e-15,
+                "y": 180.0,
+                "z": 0.0
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "MatteRed",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        },
+        {
+            "name": "bunny",
+            "position": {
+                "x": -2.3352015018463136,
+                "y": 0.15000000596046449,
+                "z": -4.669999122619629
+            },
+            "scale": {
+                "x": 10.0,
+                "y": 10.0,
+                "z": 10.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "meshType": "",
+            "mesh": "",
+            "material": "RoughnessGlass",
+            "emission": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            }
+        }
+    ],
+    "envLight": {
+        "emission": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "material": "Assets/RayTracing/Materials/Skybox.mat",
+        "envmap": "Assets/RayTracing/Textures/20060807_wells6_hd.exr"
+    },
+    "jsonCamera": {
+        "position": {
+            "x": -2.759999990463257,
+            "y": 2.740000009536743,
+            "z": 4.0
+        },
+        "rotation": {
+            "x": 0.0,
+            "y": 180.0,
+            "z": 0.0
+        },
+        "fov": 37.5,
+        "near": 0.30000001192092898,
+        "far": 100.0,
+        "useLookAt": false,
+        "lookAt": {
+            "x": 0.0,
+            "y": 0.0,
+            "z": 0.0
+        },
+        "up": {
+            "x": 0.0,
+            "y": 1.0,
+            "z": 0.0
+        }
+    },
+    "renderer": {
+        "raytracingData": {
+            "_kernelType": 0,
+            "viewMode": 0,
+            "SamplesPerPixel": 1024,
+            "MaxDepth": 5,
+            "filterType": 1,
+            "fiterRadius": {
+                "x": 1.0,
+                "y": 1.0
+            },
+            "gaussianSigma": 0.5,
+            "HDR": 1,
+            "_Exposure": 1.0,
+            "_EnviromentMapEnable": false,
+            "_UniformSampleLight": false,
+            "_UseBVHPlugin": true,
+            "_SaveOutputTexture": true
+        }
+    }
+}

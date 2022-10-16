@@ -1,0 +1,32 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "wavefrontQueues.hlsl"
+#include "bvhaccel.hlsl"
+uniform float2 rasterSize;
+
+StructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _ShadowRayQueue;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+StructuredBuffer<ShadowRayQueueItem> _ShadowRayQueueItems;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	uint queueSize = _RayQueueSizeBuffer[SHADOW_RAY_QUEUE_INDEX];
+	if (threadId >= queueSize)
+		return;
+	uint pixelIndex = _ShadowRayQueue[threadId];
+
+	ShadowRayQueueItem shadowRayItem = _ShadowRayQueueItems[pixelIndex];
+	bool shadowRayVisible = ShadowRayVisibilityTest(shadowRayItem.p0, shadowRayItem.p1, shadowRayItem.normal);
+	if (shadowRayVisible)
+	{
+		PathRadiance pathRadiance = pathRadiances[pixelIndex];
+		pathRadiance.li += shadowRayItem.ld;
+		pathRadiances[pixelIndex] = pathRadiance;
+	}
+}

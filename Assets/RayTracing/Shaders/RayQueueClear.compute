@@ -1,0 +1,18 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "wavefrontQueues.hlsl"
+
+int   clearQueueIndex;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint value;
+    InterlockedExchange(_RayQueueSizeBuffer[clearQueueIndex], 0, value);
+
+    for (int i = SHADOW_RAY_QUEUE_INDEX; i < MAX_QUEUES; ++i)
+    {
+        InterlockedExchange(_RayQueueSizeBuffer[i], 0, value);
+    }
+}

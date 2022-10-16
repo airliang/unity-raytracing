@@ -1,0 +1,35 @@
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+//#pragma multi_compile __ _ENVMAP_ENABLE
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
+#include "TracingDebug.hlsl"
+
+//use the matrix to calculate the world space ray
+StructuredBuffer<Ray>    Rays;
+uniform float2 rasterSize;
+
+Texture2D<half2>  RayConeGBuffer;
+RWTexture2D<half4> outputTexture;
+//uniform float cameraConeSpreadAngle;
+uniform int    bounces;
+uniform int   queueSizeIndex;
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+        return;
+
+    int threadId = id.x + id.y * rasterSize.x;
+    RNG rng = GetRNG(threadId);
+    Ray ray = Rays[threadId];
+    //Interaction isect = (Interaction)0;//Intersections[threadId];
+    
+    float3 color = TracingDebug(id.xy, ray, debugView, RayConeGBuffer[id.xy], cameraConeSpreadAngle, rng);
+    outputTexture[id.xy] = half4(color, 1);
+    WriteRNG(threadId, rng);
+}

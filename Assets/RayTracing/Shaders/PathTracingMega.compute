@@ -1,0 +1,94 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+#pragma multi_compile __ _ENVMAP_ENABLE
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+#include "sampler.hlsl"
+#include "GPUStructs.hlsl"
+#include "filters.hlsl"
+#include "pathIntegrator.hlsl"
+#include "colorConvert.hlsl"
+#include "TracingDebug.hlsl"
+
+//matrix RasterToCamera;
+//matrix CameraToWorld;
+float2 rasterSize;
+float _Exposure;
+int framesNum;
+float  _LensRadius;
+float  _FocalLength;
+RWTexture2D<half4> outputTexture;
+RWTexture2D<float4>  spectrums;
+
+
+
+CameraSample GetCameraSample(float2 pRaster, float2 u)
+{
+    CameraSample camSample;
+    float2 filter = ImportanceFilterSample(u);
+    camSample.pFilm = pRaster + float2(0.5, 0.5) +filter;
+    return camSample;
+}
+
+Ray GenerateRay(uint2 id, inout RNG rng)
+{
+    float2 u = Get2D(rng);
+
+    CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
+    float3 pFilm = float3(cSample.pFilm, 0);
+    float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
+    nearplanePoint /= nearplanePoint.w;
+    float3 orig = float3(0, 0, 0);
+    float3 direction = normalize(nearplanePoint.xyz);
+    if (_LensRadius > 0)
+    {
+        //sample the points on the lens
+        float2 uLens = Get2D(rng);
+        float2 pLens = ConcentricSampleDisk(uLens) * _LensRadius;
+        float ft = abs(_FocalLength / direction.z);
+        float3 focusPoint = orig + direction * ft;
+        orig = float3(pLens, 0);
+        direction = normalize(focusPoint - orig);
+    }
+    Ray ray;
+    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
+    ray.tmax = FLT_MAX;
+    ray.tmin = 0;
+    return ray;
+}
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+        return;
+
+    uint threadId = id.x + id.y * rasterSize.x;
+
+    RNG rng = GetRNG(threadId);
+    //first step: generate ray
+    Ray ray = GenerateRay(id.xy, rng);
+
+    //second step:caculate the raidiance of this path
+    float3 color;
+    if (debugView == 0)
+    {
+        float3 li = PathLi(ray, id.xy, rng);
+        float3 radiance = li; // LinearToGammaSpace(ACESToneMapping(li, _Exposure));
+        //third step: output the final radiance to texture
+        float3 spectrum = spectrums[id.xy];
+        float t = 1.0f / framesNum;
+        float3 curSpectrum = lerp(spectrum, radiance, t);
+        //spectrum.rgb += radiance;
+        spectrums[id.xy] = float4(curSpectrum, 1);
+        color = curSpectrum; //Filmic(curSpectrum); //LinearToGammaSpace(ACESToneMapping(curSpectrum, _Exposure)); 
+    }
+    else
+    {
+        color = TracingDebug(id.xy, ray, debugView, RayConeGBuffer[id.xy], cameraConeSpreadAngle, rng);
+    }
+    WriteRNG(threadId, rng);
+  
+    outputTexture[id.xy] = float4(color, 1);
+}

@@ -1,0 +1,55 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+#include "wavefrontQueues.hlsl"
+#include "bxdf.hlsl"
+#include "GPUSceneData.hlsl"
+#include "light.hlsl"
+
+float2 rasterSize;
+
+StructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _HitLightQueue;
+StructuredBuffer<HitLightQueueItem> _HitLightQueueItems;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	uint queueSize = _RayQueueSizeBuffer[HITLIGHT_QUEUE_INDEX];
+	if (threadId >= queueSize)
+		return;
+	uint pixelIndex = _HitLightQueue[threadId];
+	PathRadiance pathRadiance = pathRadiances[pixelIndex];
+	float3 li = pathRadiance.li;
+
+	HitLightQueueItem hitLightItem = _HitLightQueueItems[pixelIndex];
+
+	if (hitLightItem.depth == 0 || IsSpecular(hitLightItem.pathVertex.bxdfFlag))
+	{
+		Light light = lights[hitLightItem.lightId];
+		li += light.radiance * hitLightItem.pathVertex.throughput;
+	}
+	else
+	{
+		//mis
+		Light hitLight = lights[hitLightItem.lightId];
+		float lightSourcePmf = LightSourcePmf(hitLightItem.lightId);
+		Interaction isect;
+		ComputeSurfaceIntersection(hitLightItem.hitInfo, hitLightItem.wo, isect);
+		float lightPdf = AreaLightPdf(hitLight) * lightSourcePmf;
+		if (lightPdf > 0)
+		{
+			float3 ld = Light_Le(-hitLightItem.wo, hitLight);
+			float weight = PowerHeuristic(1, hitLightItem.pathVertex.bsdfPdf, 1, lightPdf);
+			li += ld * weight * hitLightItem.pathVertex.throughput * hitLightItem.pathVertex.bsdfVal / hitLightItem.pathVertex.bsdfPdf;
+		}
+	}
+	pathRadiance.li = li;
+	pathRadiances[pixelIndex] = pathRadiance;
+}

@@ -1,0 +1,151 @@
+// Each #kernel tells which function to compile; you can have many kernels
+
+#include "sampler.hlsl"
+#include "materials.hlsl"
+#include "wavefrontQueues.hlsl"
+#include "distributions.hlsl"
+#include "light.hlsl"
+
+#pragma kernel CSMain
+#pragma enable_d3d11_debug_symbols
+
+//#pragma multi_compile __ _ENVMAP_ENABLE
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
+int    bounces;
+float2 rasterSize;
+//int    curQueueSizeIndex;
+int    nextQueueSizeIndex;
+int    MIN_DEPTH;
+
+//RWStructuredBuffer<Interaction>  Intersections;
+//StructuredBuffer<ShadowRay>  ShadowRays;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _NextRayQueue;
+RWStructuredBuffer<uint> _ShadowRayQueue;
+StructuredBuffer<uint> _MaterialShadingQueue;
+StructuredBuffer<MaterialQueueItem>  _MaterialQueueItem;
+RWStructuredBuffer<WorkQueueItem>    _WorkQueueItems;
+RWStructuredBuffer<ShadowRayQueueItem> _ShadowRayQueueItems;
+
+Light SampleLightSource(inout RNG rng, out float lightSourcePdf, out int lightIndex)
+{
+
+    //some error happen in SampleLightSource
+    float u = Get1D(rng);
+    DistributionDiscript discript = DistributionDiscripts[0];
+    lightIndex = SampleLightSource(u, discript, Distributions1D, lightSourcePdf);
+    //lightIndex = 0;
+    //lightSourcePdf = 0.5;
+    Light light = lights[lightIndex];
+    return light;
+}
+
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+        return;
+
+    uint threadId = id.x + id.y * rasterSize.x;
+    uint queueSize = _RayQueueSizeBuffer[MATERIAL_SHADING_QUEUE_INDEX];
+    if (threadId >= queueSize)
+        return;
+    uint pixelIndex = _MaterialShadingQueue[threadId];
+    //uint pixelIndex = threadId;
+    RNG rng = GetRNG(pixelIndex);
+
+    PathRadiance pathRadiance = pathRadiances[pixelIndex];
+    float3 preBeta = pathRadiance.beta;
+
+    MaterialQueueItem materialItem = _MaterialQueueItem[pixelIndex];
+    Interaction isect;
+    ComputeSurfaceIntersection(materialItem.hitInfo, materialItem.wo, isect);
+    Material material = materials[isect.materialID];
+    isect.coneWidth = materialItem.coneWidth;
+    BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, rng);
+    float scatteringPdf = bsdfSample.pdf;
+    float3 wi = isect.LocalToWorld(bsdfSample.wi);
+
+    float3 f = bsdfSample.reflectance * abs(dot(wi, isect.normal));
+
+    if (!IsBlack(f) && scatteringPdf > 0)
+    {
+        bool breakPath = false;
+        float3 throughput = f / scatteringPdf;
+        pathRadiance.beta *= throughput;
+
+        if (bounces > MIN_DEPTH)
+        {
+            float q = max(0.05, 1 - MaxComponent(pathRadiance.beta));
+            if (Get1D(rng) < q)
+            {
+                breakPath = true;
+            }
+            else
+                pathRadiance.beta /= 1 - q;
+        }
+
+        if (!breakPath)
+        {
+            //Rays[pixelIndex] = ray;
+            //Intersections[pixelIndex] = pathVertex.nextISect;
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[nextQueueSizeIndex], 1, index);
+            _NextRayQueue[index] = pixelIndex;
+
+            WorkQueueItem workItem = (WorkQueueItem)0;
+            workItem.pathVertex.throughput = preBeta;
+            workItem.pathVertex.bsdfPdf = scatteringPdf;
+            workItem.pathVertex.bsdfVal = f;
+            workItem.pathVertex.bxdfFlag = bsdfSample.bxdfFlag;
+            workItem.ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
+            _WorkQueueItems[pixelIndex] = workItem;
+        }
+    }
+
+
+    //process sample ray
+    int lightIndex = 0;
+    float lightSourcePdf = 0;
+    Light light = SampleLightSource(rng, lightSourcePdf, lightIndex);
+    float lightPdf = 0;
+    float3 samplePointOnLight;
+    float3 Li = SampleLightRadiance(light, isect, rng, wi, lightPdf, samplePointOnLight);
+    lightPdf *= lightSourcePdf;
+    //lightPdf = AreaLightPdf(light, isect, wi, _UniformSampleLight) * lightSourcePdf;
+    if (!IsBlack(Li) && !bsdfSample.IsSpecular())
+    {
+        float3 wiLocal = isect.WorldToLocal(wi);
+        float3 woLocal = isect.WorldToLocal(isect.wo.xyz);
+        float scatteringPdf = 0;
+
+        float3 f = MaterialBRDF(material, isect, woLocal, wiLocal, scatteringPdf);
+        if (!IsBlack(f) && scatteringPdf > 0)
+        {
+            ShadowRayQueueItem shadowRayItem = (ShadowRayQueueItem)0;
+            shadowRayItem.p0 = isect.p.xyz;
+            shadowRayItem.p1 = samplePointOnLight;
+            shadowRayItem.normal = isect.normal;
+
+            f *= abs(dot(wi, isect.normal));
+            //sample psdf and compute the mis weight
+            float weight =
+                PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+            shadowRayItem.ld = preBeta * f * Li * weight / lightPdf;
+
+            _ShadowRayQueueItems[pixelIndex] = shadowRayItem;
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[SHADOW_RAY_QUEUE_INDEX], 1, index);
+            _ShadowRayQueue[index] = pixelIndex;
+        }
+    }
+
+    pathRadiances[pixelIndex] = pathRadiance;
+
+    WriteRNG(pixelIndex, rng);
+}

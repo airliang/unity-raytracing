@@ -1,0 +1,59 @@
+//#include "sampler.hlsl"
+//#include "rtCommon.hlsl"
+//#include "materials.hlsl"
+#include "bxdf.hlsl"
+#include "light.hlsl"
+#include "wavefrontQueues.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+
+#pragma kernel CSMain
+
+
+int bounces;
+float2 rasterSize;
+int   queueSizeIndex;
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+StructuredBuffer<EscapeRayItem>  _EscapeRayItems;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+StructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _RayMissQueue;
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+		return;
+
+	uint threadId = id.x + id.y * rasterSize.x;
+	uint queueSize = _RayQueueSizeBuffer[MISSRAY_QUEUE_INDEX];
+	if (threadId >= queueSize)
+		return;
+	uint pixelIndex = _RayMissQueue[threadId];
+
+	PathRadiance pathRadiance = pathRadiances[pixelIndex];
+	EscapeRayItem rayItem = _EscapeRayItems[pixelIndex];
+
+	if (rayItem.depth == 0)
+	{
+		if (_EnvLightIndex >= 0)
+		{
+			pathRadiance.li += rayItem.pathVertex.throughput * EnviromentLightLe(rayItem.direction);
+			pathRadiances[pixelIndex] = pathRadiance;
+		}
+	}
+	else if (_EnvLightIndex >= 0/* && !IsSpecular(rayItem.pathVertex.bxdfFlag)*/)
+	{
+		Light envLight = lights[_EnvLightIndex];
+		float3 li = Light_Le(rayItem.direction, envLight);
+
+		float lightSourcePmf = LightSourcePmf(_EnvLightIndex);
+		float lightPdf = EnvLightLiPdf(rayItem.direction) * lightSourcePmf;
+
+		float weight = IsSpecular(rayItem.pathVertex.bxdfFlag) ? 1 : PowerHeuristic(1, rayItem.pathVertex.bsdfPdf, 1, lightPdf);
+		pathRadiance.li += weight * rayItem.pathVertex.bsdfVal * li * rayItem.pathVertex.throughput / rayItem.pathVertex.bsdfPdf;
+		pathRadiances[pixelIndex] = pathRadiance;
+	}
+}

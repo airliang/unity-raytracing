@@ -1,0 +1,82 @@
+#include "sampler.hlsl"
+#include "wavefrontQueues.hlsl"
+//#include "bxdf.hlsl"
+#include "filters.hlsl"
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel GeneratePrimary
+
+
+// Create a RenderTexture with enableRandomWrite flag and set it
+// with cs.SetTexture
+
+//use the matrix to calculate the world space ray
+matrix RasterToCamera;
+matrix CameraToWorld;
+float2 rasterSize;
+float  _LensRadius;
+float  _FocalLength;
+
+RWStructuredBuffer<WorkQueueItem>    _WorkQueueItems;
+RWStructuredBuffer<PathRadiance> pathRadiances;
+//RWStructuredBuffer<int>    pathStates;
+//RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+RWStructuredBuffer<uint> _RayQueue;
+
+
+CameraSample GetCameraSample(float2 pRaster, float2 u)
+{
+    CameraSample camSample;
+    float2 filter = ImportanceFilterSample(u);
+    camSample.pFilm = pRaster + float2(0.5, 0.5) + filter; // *0.5 - float2(0.5, 0.5);
+    return camSample;
+}
+
+[numthreads(8,8,1)]
+void GeneratePrimary(uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+        return;
+    uint threadId = id.x + id.y * rasterSize.x;
+    //uint workIndex = _RayQueue[threadId];
+    //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
+    RNG rng = GetRNG(threadId);
+    float2 u = Get2D(rng);
+    
+    CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); 
+    float3 pFilm = float3(cSample.pFilm, 0);
+    float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
+    nearplanePoint /= nearplanePoint.w;
+
+    Ray ray;
+    float3 orig = float3(0, 0, 0);
+    float3 direction = normalize(nearplanePoint.xyz);
+    if (_LensRadius > 0)
+    {
+        //sample the points on the lens
+        float2 uLens = Get2D(rng);
+        float2 pLens = ConcentricSampleDisk(uLens) * _LensRadius;
+        float ft = abs(_FocalLength / direction.z);
+        float3 focusPoint = orig + direction * ft;
+        orig = float3(pLens, 0);
+        direction = normalize(focusPoint - orig);
+    }
+    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
+    ray.tmax = FLT_MAX;
+    ray.tmin = 0;
+    
+    WorkQueueItem workItem = (WorkQueueItem)0;
+    workItem.pathVertex.throughput = 1;
+    workItem.ray = ray;
+    _WorkQueueItems[threadId] = workItem;
+    PathRadiance bounceRadiance = (PathRadiance)0;
+    bounceRadiance.li = float3(0, 0, 0);
+    bounceRadiance.beta = 1.0;
+    pathRadiances[threadId] = bounceRadiance;
+    //uint index;
+    //InterlockedAdd(_RayQueueSizeBuffer[0], 1, index);
+    _RayQueue[threadId] = threadId;
+    WriteRNG(threadId, rng);
+}
+

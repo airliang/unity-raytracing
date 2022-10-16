@@ -1,0 +1,18 @@
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+#include "wavefrontQueues.hlsl"
+
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+float2 rasterSize;
+
+[numthreads(1,1,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint value;
+    uint fullSize = (uint)(rasterSize.x * rasterSize.y);
+    InterlockedExchange(_RayQueueSizeBuffer[0], fullSize, value);
+    for (int i = 1; i < MAX_QUEUES; ++i)
+    {
+        InterlockedExchange(_RayQueueSizeBuffer[i], 0, value);
+    }
+}

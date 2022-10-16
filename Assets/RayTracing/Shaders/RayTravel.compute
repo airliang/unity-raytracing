@@ -1,0 +1,137 @@
+#include "sampler.hlsl"
+#include "bvhaccel.hlsl"
+#include "materials.hlsl"
+#include "light.hlsl"
+#include "wavefrontQueues.hlsl"
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel RayTraversal
+
+//#pragma multi_compile __ _ENVMAP_ENABLE
+//#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
+
+float2 rasterSize;
+uniform int    bounces;
+uniform int   curQueueSizeIndex;
+//int    nextQueueSizeIndex;
+
+
+//use the matrix to calculate the world space ray
+StructuredBuffer<WorkQueueItem>    _WorkQueueItems;    //primary rays
+//RWStructuredBuffer<Interaction>  Intersections;
+//RWStructuredBuffer<PathRadiance> pathRadiances;
+//RWStructuredBuffer<int>    pathStates;
+RWStructuredBuffer<uint> _RayQueueSizeBuffer;
+StructuredBuffer<uint> _RayQueue;
+//RWStructuredBuffer<uint> _NextRayQueue;
+RWStructuredBuffer<uint> _RayMissQueue;
+RWStructuredBuffer<uint> _HitLightQueue;
+RWStructuredBuffer<uint> _MaterialShadingQueue;
+RWStructuredBuffer<HitLightQueueItem> _HitLightQueueItems;
+RWStructuredBuffer<EscapeRayItem>  _EscapeRayItems;
+RWStructuredBuffer<MaterialQueueItem>  _MaterialQueueItem;
+//RWStructuredBuffer<WorkQueueItem>      _SecondaryRayItems;
+
+//x : first hit pixel spread angle, y: previous hit cone width
+RWTexture2D<half4>  RayConeGBuffer;
+//RWTexture2D<float3> LastISectRayCone;
+
+//RWTexture2D<half4> outputTexture;
+
+[numthreads(8,8,1)]
+void RayTraversal(uint3 id : SV_DispatchThreadID)
+{
+    // TODO: insert actual code here!
+    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+        return;
+
+    int threadId = id.x + id.y * rasterSize.x;
+    uint queueSize = _RayQueueSizeBuffer[curQueueSizeIndex];
+    if (threadId >= queueSize)
+        return;
+    
+    uint pixelIndex = _RayQueue[threadId];
+
+    WorkQueueItem workItem = _WorkQueueItems[pixelIndex];
+    //Interaction isect = (Interaction)0;//Intersections[threadId];
+    
+    //PathRadiance pathRadiance = pathRadiances[pixelIndex];
+    HitInfo hitInfo = (HitInfo)0;
+    bool foundIntersect = ClosestHit(workItem.ray, hitInfo);
+    if (foundIntersect)
+    {
+        int meshInstanceIndex = hitInfo.meshInstanceId;
+        MeshInstance meshInstance = MeshInstances[meshInstanceIndex];
+        int lightIndex = meshInstance.GetLightIndex();
+
+        if (lightIndex >= 0)
+        {
+            //add to lightqueue
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[HITLIGHT_QUEUE_INDEX], 1, index);
+            _HitLightQueue[index] = pixelIndex;
+            HitLightQueueItem hitLightItem = (HitLightQueueItem)0;
+            hitLightItem.hitInfo = hitInfo;
+            hitLightItem.pathVertex = workItem.pathVertex;
+            hitLightItem.wo = -workItem.ray.direction;
+            hitLightItem.depth = bounces;
+            hitLightItem.lightId = lightIndex;
+            _HitLightQueueItems[pixelIndex] = hitLightItem;
+        }
+        else
+        {
+            //RayCone rayCone;
+            //rayCone.spreadAngle = cameraConeSpreadAngle;
+            //rayCone.width = cameraConeSpreadAngle * isect.hitT;
+            ////isect.coneWidth = rayCone.width;
+            //half4 gbuffer = RayConeGBuffer[id.xy];
+            //gbuffer.y = rayCone.spreadAngle + gbuffer.x;
+
+            half4 surfaceBeta = RayConeGBuffer[id.xy];
+            RayCone preCone;
+            preCone.width = surfaceBeta.z;
+            preCone.spreadAngle = surfaceBeta.y;
+            float coneWidth = 0;
+            if (bounces == 0)
+            {
+                surfaceBeta.y = cameraConeSpreadAngle + surfaceBeta.x;
+                coneWidth = cameraConeSpreadAngle * hitInfo.hitT;
+            }
+            else
+            {
+                RayCone rayCone = ComputeRayCone(preCone, hitInfo.hitT, surfaceBeta.r);
+                coneWidth = rayCone.width;
+            }
+
+            //RayConeGBuffer[id.xy] = gbuffer;
+            //add to material shading queue
+            //Intersections[pixelIndex] = isect;
+            
+            uint index;
+            InterlockedAdd(_RayQueueSizeBuffer[MATERIAL_SHADING_QUEUE_INDEX], 1, index);
+            _MaterialShadingQueue[index] = pixelIndex;
+            MaterialQueueItem materialShadingItem = (MaterialQueueItem)0;
+            materialShadingItem.hitInfo = hitInfo;
+            materialShadingItem.wo = -workItem.ray.direction;
+            materialShadingItem.coneWidth = coneWidth;
+            _MaterialQueueItem[pixelIndex] = materialShadingItem;//ConvertToMaterialItem(isect);
+        }
+    }
+    else
+    {
+        //add to raymiss queue
+        uint index;
+        InterlockedAdd(_RayQueueSizeBuffer[MISSRAY_QUEUE_INDEX], 1, index);
+        _RayMissQueue[index] = pixelIndex;
+        EscapeRayItem escapeRayItem = (EscapeRayItem)0;
+        escapeRayItem.depth = bounces;
+        escapeRayItem.direction = workItem.ray.direction;
+        escapeRayItem.orig = workItem.ray.orig;
+        escapeRayItem.pathVertex = workItem.pathVertex;
+        _EscapeRayItems[pixelIndex] = escapeRayItem;
+        //for test
+        //PathRadiance pathRadiance = pathRadiances[pixelIndex];
+        //pathRadiance.li = float3(1, 0, 0);
+        //pathRadiances[pixelIndex] = pathRadiance;
+    }
+}
