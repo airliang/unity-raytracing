@@ -1,0 +1,26 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6867702b0e44c4d42bcfa724569698dc, type: 3}
+  m_Name: Wavefront Resource
+  m_EditorClassIdentifier: 
+  generateRay: {fileID: 7200000, guid: 89a21110d834b3a45a61b50ba8e85ddf, type: 3}
+  RayTravel: {fileID: 7200000, guid: 8c98bbc01ef926a4991c6ab29793b90a, type: 3}
+  InitRandom: {fileID: 7200000, guid: f09f3de862413a74781d4d49b8cbd9ee, type: 3}
+  ResetRayQueues: {fileID: 7200000, guid: 9026896d77be4c64caafec21b2ea2ba9, type: 3}
+  RayMiss: {fileID: 7200000, guid: 9f5ba9218bea57843aff129e1675fb7b, type: 3}
+  HitAreaLight: {fileID: 7200000, guid: 817ef57b2d9a7d748907828562103fc0, type: 3}
+  EstimateDirect: {fileID: 7200000, guid: 0e9388db8ef7da84fa9512dbe530a0f8, type: 3}
+  ShadowRayLighting: {fileID: 7200000, guid: af3d116eaf28e3946a57cd2ba8e1bc10, type: 3}
+  RayQueueClear: {fileID: 7200000, guid: 7fa0fbb1428608147a43255094818d21, type: 3}
+  ImageReconstruction: {fileID: 7200000, guid: 0df577181ba92c140b93275cf6a21642, type: 3}
+  DebugView: {fileID: 7200000, guid: 07dd9c5452a1b83488ccde81a1e4f9bd, type: 3}
+  RayCone: {fileID: 4800000, guid: 66ee7316e4fe4764081d81c3d99c898f, type: 3}
