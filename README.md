@@ -1,5 +1,6 @@
 # unity-raytracing
-GPU Raytracing renderer by compute shader in unity
+GPU Raytracing renderer which runs in hlsl compute shader in unity.
+This project is implemented by pure hlsl vertex shader, fragment shader and compute shader in Unity, not using any raytracing shaders.
 ## Features
 - Megakernel path tracing
 - Wavefront path tracing
@@ -11,6 +12,9 @@ GPU Raytracing renderer by compute shader in unity
 - Filter importance sampling
 - HDRI Environment Maps
 - Depth of field
+
+## Scene Assets
+We can convert the tungsten json format to our own format which is also using json. Use the python tool(unity-raytracing/Assets/RayTracing/Editor/convert_tungsten.py) for converting the tungsten scene. You can download the tungsten scenes at https://benedikt-bitterli.me/resources/ . 
   
 ## ScreenShops
 ### cornel box
@@ -20,6 +24,9 @@ GPU Raytracing renderer by compute shader in unity
 ### bathroom2
 10000 spp, ACE tonemapping
 ![](ScreenShots/bathroom2.jpg)
+### depth of field and glass material
+![](ScreenShots/dof_glass.jpg)
+
 
 ## References
 - pbrt-v3 (https://github.com/mmp/pbrt-v3.git)
