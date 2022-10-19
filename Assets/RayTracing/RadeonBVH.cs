@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
 using System.IO;
+using AOT;
 
 public static class RadeonBVH
 {
@@ -167,8 +168,33 @@ public static class RadeonBVH
     [DllImport(BVHBUILDER_DLL, EntryPoint = "FlattenBVHTree", CallingConvention = CallingConvention.Cdecl)]
     private static extern void FlattenBVHTree(ref BVHHandle accelerationStructure, [In, Out] LinearBVHNode[] nodes);
 
+    [DllImport(BVHBUILDER_DLL, EntryPoint = "RegisterLogCallback", CallingConvention = CallingConvention.Cdecl)]
+    static extern void RegisterLogCallback(logCallback cb);
+
+    delegate void logCallback(IntPtr request, int color, int size);
+    enum Color { red, green, blue, black, white, yellow, orange };
+    [MonoPInvokeCallback(typeof(logCallback))]
+    static void OnDebugCallback(IntPtr request, int color, int size)
+    {
+        //Ptr to string
+        string debug_string = Marshal.PtrToStringAnsi(request, size);
+
+        //Add Specified Color
+        debug_string =
+            String.Format("{0}{1}{2}{3}{4}",
+            "<color=",
+            ((Color)color).ToString(),
+            ">",
+            debug_string,
+            "</color>"
+            );
+
+        UnityEngine.Debug.Log(debug_string);
+    }
+
     public static BVHFlat CreateBLAS(GPUBounds[] bounds, BuildParam param, int bvhTriangleIndex, int bvhNodeIndex)
     {
+        RegisterLogCallback(OnDebugCallback);
         var handle = CreateBVH(bounds, bounds.Length, true, true, param.cost, param.numBins, param.splitDepth, param.miniOverlap);
         var flat = new BVHFlat();
         flat.min = handle.bounds.min;
@@ -189,6 +215,7 @@ public static class RadeonBVH
 
     public static BVHFlat CreateTLAS(GPUBounds[] bounds, BuildParam param, RadeonBVH.MeshInstance[] meshInstances, int instanceBVHOffset, int bvhNodeIndex)
     {
+        RegisterLogCallback(OnDebugCallback);
         var handle = CreateBVH(bounds, bounds.Length, false, false, param.cost, param.numBins, param.splitDepth, param.miniOverlap);
         var flat = new BVHFlat();
         flat.min = handle.bounds.min;
