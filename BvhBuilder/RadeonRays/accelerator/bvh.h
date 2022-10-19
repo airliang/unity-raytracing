@@ -118,6 +118,14 @@ namespace RadeonRays
             float split;
             float sah;
             float overlap;
+
+            SahSplit()
+            {
+                dim = 0;
+                split = std::numeric_limits<float>::quiet_NaN();
+                overlap = 0;
+                sah = std::numeric_limits<float>::max();
+            }
         };
 
         void BuildNode(SplitRequest const& req, bbox const* bounds, float3 const* centroids, int* primindices);

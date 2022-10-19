@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31410.357
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32922.545
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BvhBuilder", "BvhBuilder.vcxproj", "{3D168A57-29CE-CBA4-92D5-A4007EAC6695}"
 EndProject
@@ -11,6 +11,8 @@ Global
 		Debug|x86 = Debug|x86
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+		RelWithDebugInfo|x64 = RelWithDebugInfo|x64
+		RelWithDebugInfo|x86 = RelWithDebugInfo|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.Debug|x64.ActiveCfg = Debug|x64
@@ -21,6 +23,10 @@ Global
 		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.Release|x64.Build.0 = Release|x64
 		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.Release|x86.ActiveCfg = Release|Win32
 		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.Release|x86.Build.0 = Release|Win32
+		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.RelWithDebugInfo|x64.ActiveCfg = RelWithDebugInfo|x64
+		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.RelWithDebugInfo|x64.Build.0 = RelWithDebugInfo|x64
+		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.RelWithDebugInfo|x86.ActiveCfg = RelWithDebugInfo|Win32
+		{3D168A57-29CE-CBA4-92D5-A4007EAC6695}.RelWithDebugInfo|x86.Build.0 = RelWithDebugInfo|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

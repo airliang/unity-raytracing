@@ -1,6 +1,7 @@
 #include "BvhBuilder.h"
 #include "RadeonRays/accelerator/bvh.h"
 #include "RadeonRays/accelerator/split_bvh.h"
+#include "RadeonRays/log/log.h"
 
 #include <cassert>
 #include <stack>
@@ -75,7 +76,7 @@ int ProcessTLASNodes(Node* nodes, const Bvh::Node* node, const std::vector<int>&
 
 RRAPI BVHHandle CreateBVH(const RadeonRays::bbox* bounds, int count, bool useSah, bool useSplit, float traversalCost, int numBins, int splitDepth, float miniOverlap)
 {
-	Bvh* bvh = useSplit ? new SplitBvh(traversalCost, numBins, splitDepth, miniOverlap, 0.5f) : new Bvh(traversalCost, numBins, useSah);
+	Bvh* bvh = useSplit ? new SplitBvh(traversalCost, numBins, splitDepth, miniOverlap, 0) : new Bvh(traversalCost, numBins, useSah);
 	bvh->Build((const RadeonRays::bbox*)bounds, count);
 	BVHHandle sbvh;
 	sbvh.bvh = bvh;
@@ -133,4 +134,9 @@ RRAPI void FlattenBVHTree(const BVHHandle* handle, LinearBVHNode* linearNodes)
 	Bvh* bvh = (Bvh*)handle->bvh;
 	int offset = 0;
 	FlattenBVHTree(bvh->GetRoot(), offset, linearNodes);
+}
+
+void RegisterLogCallback(FuncCallBack cb) {
+	//logCallbackFunc = cb;
+	Logger::logCallbackFunc = cb;
 }
