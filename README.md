@@ -17,7 +17,7 @@ This project is implemented by pure hlsl vertex shader, fragment shader and comp
 We can convert the tungsten json format to our own format which is also using json. Use the python tool(unity-raytracing/Assets/RayTracing/Editor/convert_tungsten.py) for converting the tungsten scene. You can download the tungsten scenes at https://benedikt-bitterli.me/resources/ . 
   
 ## ScreenShops
-### cornel box
+### cornell box
 ![](ScreenShots/cornel-box.gif)
 ### staircase2
 ![](ScreenShots/staircase2.gif)
