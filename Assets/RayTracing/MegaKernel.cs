@@ -33,6 +33,7 @@ public class MegaKernel : TracingKernel
 
     int framesNum = 0;
     private bool hasSaveImage = false;
+    float executeTimeBegin = 0;
     //float cameraConeSpreadAngle = 0;
 
     public MegaKernel(MegaKernelResource resource)
@@ -139,12 +140,20 @@ public class MegaKernel : TracingKernel
 
     public void Update(Camera camera)
     {
-        if (!gpuSceneData.IsRunalbe())
-            return;
-        if (framesNum >= _rayTracingData.SamplesPerPixel)
+        //if (!gpuSceneData.IsRunalbe())
+        //    return;
+        if (framesNum == 0)
         {
-            //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
-            //Debug.Log(uv.p);
+            executeTimeBegin = Time.realtimeSinceStartup;
+        }
+
+        if (framesNum++ >= _rayTracingData.SamplesPerPixel)
+        {
+            if (framesNum == _rayTracingData.SamplesPerPixel + 1)
+            {
+                float timeInterval = Time.realtimeSinceStartup - executeTimeBegin;
+                Debug.Log("Megakernel GPU rendering finished, cost time:" + timeInterval);
+            }
             if (_rayTracingData._SaveOutputTexture)
             {
                 if (!hasSaveImage)
@@ -161,7 +170,7 @@ public class MegaKernel : TracingKernel
         RenderToGBuffer(camera);
         _MegaCompute.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
         _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        _MegaCompute.SetInt("framesNum", ++framesNum);
+        _MegaCompute.SetInt("framesNum", framesNum);
         _MegaCompute.Dispatch(_MegaComputeKernel, threadGroupX, threadGroupY, 1);
     }
 
@@ -271,5 +280,10 @@ public class MegaKernel : TracingKernel
         byte[] bytes = ImageConversion.EncodeArrayToEXR(texture2D.GetRawTextureData(), texture2D.graphicsFormat, (uint)texture2D.width, (uint)texture2D.height, 0, Texture2D.EXRFlags.OutputAsFloat);
         Object.Destroy(texture2D);
         File.WriteAllBytes(Application.dataPath + "/../SavedOutput.exr", bytes);
+    }
+
+    public int GetCurrentSPPCount()
+    {
+        return framesNum;
     }
 }

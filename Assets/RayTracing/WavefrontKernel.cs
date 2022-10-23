@@ -95,6 +95,8 @@ public class WavefrontKernel : TracingKernel
     const int MaterialQueueItemSize = 56;
     const int ShadowRayItemSize = 48;
 
+    float executeTimeBegin = 0;
+
     public WavefrontKernel(WavefrontResource resource)
     {
         generateRay = resource.generateRay;
@@ -261,23 +263,20 @@ public class WavefrontKernel : TracingKernel
 
     public void Update(Camera camera)
     {
-        
-        //if (Input.GetMouseButtonUp(0))
-        //{
-        //    OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1);
-        //    Vector3 K = new Vector3(3.9747f, 2.38f, 1.5998f);
-        //    Vector3 etaT = new Vector3(0.1428f, 0.3741f, 1.4394f);
-        //    float cosTheta = 0.3f;
-        //    Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
-        //    Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
-        //}
-
-        //bvhAccel.DrawDebug(meshInstances, true);
+        if (framesNum == 0)
+        {
+            executeTimeBegin = Time.realtimeSinceStartup;
+        }
 
         if (framesNum++ >= _rayTracingData.SamplesPerPixel)
         {
             //GPUFilterSample uv = filter.Sample(MathUtil.GetRandom01());
             //Debug.Log(uv.p);
+            if (framesNum == _rayTracingData.SamplesPerPixel + 1)
+            {
+                float timeInterval = Time.realtimeSinceStartup - executeTimeBegin;
+                Debug.Log("Wavefront GPU rendering finished, cost time:" + timeInterval);
+            }
             return;
         }
 
@@ -727,5 +726,10 @@ public class WavefrontKernel : TracingKernel
             kRayQueueClear = RayQueueClear.FindKernel("CSMain");
             RayQueueClear.SetBuffer(kRayQueueClear, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         }
+    }
+
+    public int GetCurrentSPPCount()
+    {
+        return framesNum;
     }
 }

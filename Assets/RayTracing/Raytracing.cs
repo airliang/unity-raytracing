@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
+using UnityEngine.XR;
 
 
 //[ExecuteInEditMode]
@@ -64,6 +65,11 @@ public class Raytracing : MonoBehaviour
             Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
             Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
         }
+        else if (Input.GetMouseButtonUp(1))
+        {
+            Vector3 radiance = RayTracingTest.OnePathTracing(250, 250, (int)Screen.width, 1,
+               _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
+        }
     }
 
     void OnDestroy()
@@ -85,7 +91,12 @@ public class Raytracing : MonoBehaviour
 
     private void OnGUI()
     {
-        
+        var x = 25;
+        var y = 20;
+
+        GUI.TextArea(new Rect(x, y, 400, 20),
+            string.Format("SPP:{0} ", _RaytracingKernel.GetCurrentSPPCount()), GUI.skin.label);
+
     }
 
 

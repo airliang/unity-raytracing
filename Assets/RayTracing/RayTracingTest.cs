@@ -569,62 +569,6 @@ public class RayTracingTest
             GPURay gpuRay = RayTracingTest.GenerateRay(x, y, scene.RasterToCamera, camera.cameraToWorldMatrix, filter);
 
             CPUPathIntegrator.PathLi(gpuRay, scene);
-            /*
-            //bIntersectTest = IntersectRay(bvhAccel.linearNodes[0].bounds, gpuRay);
-            float hitT = float.MaxValue;
-            GPUInteraction interaction = new GPUInteraction();
-            GPUPathRadiance pathRadiance = new GPUPathRadiance();
-            pathRadiance.beta = Vector3.one;
-            for (int p = 0; p < 5; ++p)
-            {
-                bool bIntersectTest = scene.BVH.IntersectInstTest(gpuRay, scene.meshInstances, scene.meshHandles, scene.BVH.instBVHNodeAddr, out hitT, ref interaction, false);
-                if (bIntersectTest)
-                {
-                    GPUShadowRay shadowRay = RayTracingTest.SampleShadowRayTest(scene.BVH, scene.InstanceBVHAddr, scene.Distributions1D, scene.gpuLights, interaction, scene.meshInstances, scene.triangles, scene.gpuVertices, scene.gpuMaterials, scene.gpuDistributionDiscripts);
-                    Debug.Log("bounce=" + p + " shadowray radiance=" + shadowRay.radiance.ToDetailString() + " pdf=" + shadowRay.lightPdf);
-                    float scatteringpdf = 0;
-                    Vector3 onePathLightRadiance = RayTracingTest.EstimateDirect(scene.BVH, shadowRay, interaction, new Vector2(UnityEngine.Random.Range(0.0f, 1.0f), UnityEngine.Random.Range(0.0f, 1.0f)),
-                        scene.gpuMaterials, scene.gpuLights, scene.meshInstances, scene.triangles, scene.gpuVertices, scene.Distributions1D, out scatteringpdf);
-                    Debug.Log("bounce=" + p + " after estimateDirect, pathLightRadiance=" + onePathLightRadiance.ToDetailString() + " pdf=" + scatteringpdf);
-                    pathRadiance.li += pathRadiance.beta.Mul(onePathLightRadiance);
-                    bool breakLoop = false;
-
-                    gpuRay = RayTracingTest.GeneratePath(ref interaction, ref pathRadiance, gpuRay, scene.gpuMaterials, out breakLoop, out scatteringpdf);
-                    Debug.Log("bounce=" + p + " generatePath, beta=" + pathRadiance.beta.ToDetailString() + " scatteringPdf=" + scatteringpdf);
-
-                    if (breakLoop)
-                    {
-                        break;
-                    }
-
-                    if (p > 3)
-                    {
-                        float q = Mathf.Max(0.05f, 1 - pathRadiance.beta.MaxComponent());
-                        if (UnityEngine.Random.Range(0.0f, 1.0f) < q)
-                        {
-                            break;
-                        }
-                        else
-                            pathRadiance.beta /= 1 - q;
-                    }
-
-                    Vector3 screenPoint = scene.WorldToRaster.MultiplyPoint(interaction.p);
-                    Debug.Log("Interaction screen point is:" + screenPoint);
-                }
-                else
-                {
-                    if (i == 0)
-                    {
-                        //sample the cubemap
-                    }
-                    break;
-                }
-            }
-            rgbSum += pathRadiance.li;
-            int frameNum = i + 1;
-            finalRadiance = rgbSum / frameNum;
-            Debug.Log("###############OnePathtracing debug end:finalRadiance=" + finalRadiance.ToDetailString());
-            */
         }
 
         return finalRadiance;

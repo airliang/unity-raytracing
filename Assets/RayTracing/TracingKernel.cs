@@ -65,6 +65,8 @@ public interface TracingKernel
     GPUSceneData GetGPUSceneData();
 
     GPUFilterData GetGPUFilterData();
+
+    int GetCurrentSPPCount();
 }
 
 

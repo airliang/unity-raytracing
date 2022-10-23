@@ -28,7 +28,7 @@ public static class RadeonBVH
         public Vector3 min;
         public Vector3 max;
         public Vector3 LRLeaf;
-        public Vector3 pad;
+        //public Vector3 pad;
         //public bool isLeaf => left != -1;
     }
 
@@ -94,9 +94,9 @@ public static class RadeonBVH
                     bw.Write(n.LRLeaf.x);
                     bw.Write(n.LRLeaf.y);
                     bw.Write(n.LRLeaf.z);
-                    bw.Write(n.pad.x);
-                    bw.Write(n.pad.y);
-                    bw.Write(n.pad.z);
+                    //bw.Write(n.pad.x);
+                    //bw.Write(n.pad.y);
+                    //bw.Write(n.pad.z);
                 });
                 bw.Write((uint)(sortedIndices != null ? sortedIndices.Length : 0));
                 Array.ForEach(sortedIndices, s => bw.Write(s));
@@ -142,9 +142,9 @@ public static class RadeonBVH
                     node.LRLeaf.x = br.ReadSingle();
                     node.LRLeaf.y = br.ReadSingle();
                     node.LRLeaf.z = br.ReadSingle();
-                    node.pad.x = br.ReadSingle();
-                    node.pad.y = br.ReadSingle();
-                    node.pad.z = br.ReadSingle();
+                    //node.pad.x = br.ReadSingle();
+                    //node.pad.y = br.ReadSingle();
+                    //node.pad.z = br.ReadSingle();
                     nodes[i] = node;
                 }
                 var sortedCount = br.ReadUInt32();

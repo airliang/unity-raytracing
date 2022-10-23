@@ -7,14 +7,9 @@
 #include "bvhaccel.hlsl"
 #include "materials.hlsl"
 
-//RWStructuredBuffer<Interaction>       Intersections;
 RWTexture2D<half4>  RayConeGBuffer;
 int MAX_PATH;
 int MIN_PATH;
-//RWTexture2D<float3> LastISectRayCone;
-//float cameraConeSpreadAngle;
-
-
 
 float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float lightSourcePdf, inout RNG rng)
 {

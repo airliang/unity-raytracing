@@ -34,7 +34,7 @@ struct Node
     RadeonRays::float3 bboxmin;
     RadeonRays::float3 bboxmax;
 	RadeonRays::float3 LRLeaf;
-	RadeonRays::float3 pad;
+	//RadeonRays::float3 pad;
 	//int left;
  //   int right;
 };

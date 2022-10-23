@@ -36,3 +36,7 @@ We can convert the tungsten json format to our own format which is also using js
 - Ray Tracing Gems High-Quality and Real-Time Rendering with DXR and Other APIs
 - Real-time Shading with Filtered Importance Sampling
 - GLSL-Pathtracer (https://github.com/knightcrawler25/GLSL-PathTracer)
+- Megakernels Considered Harmful: Wavefront Path Tracing on GPUs
+- Texture Level-of-Detail Strategies for Real-Time Ray Tracing
+- Realtime Ray Tracing of Dynamic Scenes on an FPGA Chip
+- GPU-path-tracing-tutorial-4 (https://github.com/straaljager/GPU-path-tracing-with-CUDA-tutorial-4)

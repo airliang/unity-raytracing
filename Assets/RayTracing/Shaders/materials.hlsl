@@ -92,8 +92,6 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 	if (IS_TEXTURED_PARAM(mask))
 	{
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
-		//textureArrayId = GET_TEXTUREARRAY_ID(mask);
-		//float4 albedo = testTexture.SampleLevel(linearRepeatSampler, uv, mipmapLevel);
 		
 		float mipmapLevel = ComputeTextureLOD(texLod);
 		float4 albedo = SampleAlbedoTexture(texLod.uv.xy, textureIndex, mipmapLevel);

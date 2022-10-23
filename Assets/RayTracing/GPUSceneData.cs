@@ -133,7 +133,7 @@ public class GPUSceneData
     ComputeBuffer triangleBuffer;
     ComputeBuffer meshInstanceBuffer;
     ComputeBuffer BVHBuffer;
-    ComputeBuffer intersectBuffer;
+    //ComputeBuffer intersectBuffer;
     ComputeBuffer lightBuffer;
     ComputeBuffer materialBuffer;
     ComputeBuffer distribution1DBuffer;
@@ -527,12 +527,6 @@ public class GPUSceneData
             envLightIndex = gpuLights.Count;
             gpuLights.Add(gpuEnvLight);
         }
-        
-
-        if (intersectBuffer == null)
-        {
-            intersectBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUInteraction)), ComputeBufferType.Structured);
-        }
     }
 
     struct GPURadeonNode
@@ -540,7 +534,7 @@ public class GPUSceneData
         public Vector3 min;
         public Vector3 max;
         public Vector3 LRLeaf;
-        public Vector3 pad;
+        //public Vector3 pad;
     }
 
     void SetupGPUBVHData()
@@ -572,7 +566,7 @@ public class GPUSceneData
             
             if (BVHBuffer == null)
             {
-                BVHBuffer = new ComputeBuffer(bvhAccel.m_flattenNodes.Count/* * 2*/, BVHNodeSize, ComputeBufferType.Structured);
+                BVHBuffer = new ComputeBuffer(bvhAccel.m_flattenNodes.Count, BVHNodeSize, ComputeBufferType.Structured);
                 GPURadeonNode[] gpuRadeonNodes = new GPURadeonNode[bvhAccel.m_flattenNodes.Count];
                 for (int i = 0; i < bvhAccel.m_flattenNodes.Count; i++)
                 {
@@ -580,7 +574,7 @@ public class GPUSceneData
                     gpuRadeonNodes[i].min = bvhAccel.m_flattenNodes[i].min;
                     gpuRadeonNodes[i].max = bvhAccel.m_flattenNodes[i].max;
                     gpuRadeonNodes[i].LRLeaf = bvhAccel.m_flattenNodes[i].LRLeaf;
-                    gpuRadeonNodes[i].pad = bvhAccel.m_flattenNodes[i].pad;
+                    //gpuRadeonNodes[i].pad = bvhAccel.m_flattenNodes[i].pad;
                 }
                 BVHBuffer.SetData(gpuRadeonNodes);
             }
@@ -733,7 +727,7 @@ public class GPUSceneData
         cs.SetBuffer(kernel, "Vertices", verticesBuffer);
         cs.SetBuffer(kernel, "TriangleIndices", triangleBuffer);
         
-        cs.SetBuffer(kernel, "Intersections", intersectBuffer);
+        //cs.SetBuffer(kernel, "Intersections", intersectBuffer);
         cs.SetBuffer(kernel, "MeshInstances", meshInstanceBuffer);
         
         cs.SetBuffer(kernel, "lights", lightBuffer);
@@ -840,7 +834,7 @@ public class GPUSceneData
         ReleaseComputeBuffer(triangleBuffer);
         ReleaseComputeBuffer(meshInstanceBuffer);
         ReleaseComputeBuffer(BVHBuffer);
-        ReleaseComputeBuffer(intersectBuffer);
+        //ReleaseComputeBuffer(intersectBuffer);
         ReleaseComputeBuffer(materialBuffer);
         ReleaseComputeBuffer(lightBuffer);
         ReleaseComputeBuffer(distribution1DBuffer);
@@ -848,8 +842,6 @@ public class GPUSceneData
         ReleaseComputeBuffer(envLightMarginalBuffer);
         ReleaseComputeBuffer(envLightConditionBuffer);
         ReleaseComputeBuffer(envLightConditionFuncIntsBuffer);
-        //just for test
-        //ReleaseComputeBuffer(envLight.computeBuffer);
     }
 
     public BVHAccel BVH

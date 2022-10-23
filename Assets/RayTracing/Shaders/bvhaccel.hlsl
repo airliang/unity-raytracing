@@ -17,45 +17,19 @@ StructuredBuffer<BVHNode>  BVHTree;
 StructuredBuffer<float4>   WoopTriangles;
 StructuredBuffer<int>      WoopTriangleIndices;
 
+
 struct RadeonBVHNode
 {
 	float3 min;
 	float3 max;
 	float3 LRLeaf;
-	float3 pad;
+	//float3 pad;
 };
 StructuredBuffer<RadeonBVHNode>  BVHTree2;
 
 #define STACK_SIZE 64
 #define EntrypointSentinel 0x76543210
 
-
-int min_min(int a, int b, int c)
-{
-	return min(min(a, b), c);
-}
-int min_max(int a, int b, int c)
-{
-	return max(min(a, b), c);
-
-}
-int max_min(int a, int b, int c)
-{
-	return min(max(a, b), c);
-}
-
-int max_max(int a, int b, int c)
-{
-	return max(max(a, b), c);
-}
-
-float fmin_fmin(float a, float b, float c) { return asfloat(min_min(asint(a), asint(b), asint(c))); }
-float fmin_fmax(float a, float b, float c) { return asfloat(min_max(asint(a), asint(b), asint(c))); }
-float fmax_fmin(float a, float b, float c) { return asfloat(max_min(asint(a), asint(b), asint(c))); }
-float fmax_fmax(float a, float b, float c) { return asfloat(max_max(asint(a), asint(b), asint(c))); }
-
-float spanBeginKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) { return fmax_fmax(min(a0, a1), min(b0, b1), fmin_fmax(c0, c1, d)); }
-float spanEndKepler(float a0, float a1, float b0, float b1, float c0, float c1, float d) { return fmin_fmin(max(a0, a1), max(b0, b1), fmax_fmin(c0, c1, d)); }
 
 float BoundRayIntersect(in Ray r, in float3 invdir, in float3 bmin, in float3 bmax/*, out float hitTMin*/)
 {
@@ -628,6 +602,7 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 	return false;
 }
 
+
 /*
 bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 {
@@ -849,17 +824,17 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 	float t = ray.tmax;
 
 	// Intersect BVH and tris
-	int stack[64];
+	int traversalStack[STACK_SIZE];
 	int ptr = 0;
-	stack[ptr++] = -1;
+	traversalStack[ptr++] = -1;
 
 	int index = instBVHAddr;
 	float leftHit = 0.0;
 	float rightHit = 0.0;
 
-	int currMatID = 0;
+	//int currMatID = 0;
 	bool BLAS = false;
-	bool hitLight = false;
+	//bool hitLight = false;
 
 	int3 triID = int3(-1, -1, -1);
 	//float4x4 transMat;
@@ -872,11 +847,13 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 	//rTrans.direction = ray.direction;
 	int hitMeshInstanceId = -1;
 	int loopCount = 0;
+	int deferred = -1;
+	bool continues = true;
 
 	while (index != -1)
 	{
-		if (loopCount++ > 15)
-			break;
+		//if (loopCount++ > 20)
+		//	break;
 		RadeonBVHNode bvhNode = BVHTree2[index];
 
 		float3 LRLeaf = bvhNode.LRLeaf; //ivec3(texelFetch(BVH, index * 3 + 2).xyz);
@@ -887,6 +864,7 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 
 		if (leaf > 0) // Leaf node of BLAS
 		{
+			//return true;
 			for (int i = 0; i < rightIndex; i++) // Loop through tris
 			{
 				int3 vertIndices = TriangleIndices[leftIndex + i];
@@ -894,7 +872,7 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 				Vertex v0 = Vertices[vertIndices.x];//texelFetch(verticesTex, vertIndices.x);
 				Vertex v1 = Vertices[vertIndices.y];//texelFetch(verticesTex, vertIndices.y);
 				Vertex v2 = Vertices[vertIndices.z];//texelFetch(verticesTex, vertIndices.z);
-
+				
 				/*
 				float3 e0 = v1.position - v0.position;
 				float3 e1 = v2.position - v0.position;
@@ -916,6 +894,7 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 					t = uvt.z;
 					triID = vertIndices;
 					bary = uvt.wxy;
+					hitInfo.meshInstanceId = hitMeshInstanceId;
 
 					if (anyHit)
 						return true;
@@ -924,16 +903,17 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 				
 				
 				float2 uv = 0;
-				float hitT = 0;
+				float hitT = t;
 				if (IntersectTriangle(rTrans, v0.position, v1.position, v2.position, uv, hitT))
 				{
 					t = hitT;
 					triID = vertIndices;
-					bary.xy = uv;
+					float w = 1.0 - uv.x - uv.y;
+					bary.xy = float2(w, uv.x);
+					hitInfo.meshInstanceId = hitMeshInstanceId;
 					if (anyHit)
 						return true;
 				}
-				
 			}
 		}
 		else if (leaf < 0) // Leaf node of TLAS
@@ -943,21 +923,21 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 			rTrans = TransformRay(meshInstance.worldToLocal, ray);
 
 			// Add a marker. We'll return to this spot after we've traversed the entire BLAS
-			stack[ptr++] = -1;
+			traversalStack[ptr++] = -1;
 			index = leftIndex;
 			BLAS = true;
-			currMatID = rightIndex;
+			//currMatID = rightIndex;
 			continue;
 		}
 		else
 		{
+			continues = false;
 			RadeonBVHNode leftChild = BVHTree2[leftIndex];
 			RadeonBVHNode rightChild = BVHTree2[rightIndex];
 			float3 invDir = 1.0 / rTrans.direction;
 			leftHit = BoundRayIntersect(rTrans, invDir, leftChild.min, leftChild.max);
 			rightHit = BoundRayIntersect(rTrans, invDir, rightChild.min, rightChild.max);
-
-			if (leftHit > 0.0 && rightHit > 0.0)
+			if (leftHit > 0 && rightHit > 0)
 			{
 				int deferred = -1;
 				if (leftHit > rightHit)
@@ -971,28 +951,32 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 					deferred = rightIndex;
 				}
 
-				stack[ptr++] = deferred;
-				continue;
+				traversalStack[ptr++] = deferred;
+				//continue;   this will optimize the traversalStack code in desambly, so I change the codes in this way
+				continues = true;
 			}
-			else if (leftHit > 0.)
+			else if (leftHit > 0)
 			{
 				index = leftIndex;
-				continue;
+				continues = true;
 			}
-			else if (rightHit > 0.)
+			else if (rightHit > 0)
 			{
 				index = rightIndex;
-				continue;
+				continues = true;
 			}
+
+			if (continues)
+				continue;
 		}
-		index = stack[--ptr];
+		index = traversalStack[--ptr];
 
 		// If we've traversed the entire BLAS then switch to back to TLAS and resume where we left off
 		if (BLAS && index == -1)
 		{
 			BLAS = false;
 
-			index = stack[--ptr];
+			index = traversalStack[--ptr];
 
 			rTrans = ray;
 		}
@@ -1004,8 +988,8 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 
 	hitInfo.triAddr = triID;
 	hitInfo.hitT = t;
-	hitInfo.baryCoord = bary.yz;
-	hitInfo.meshInstanceId = hitMeshInstanceId;
+	hitInfo.baryCoord = bary.xy;
+	
 
 	return true;
 }
@@ -1013,7 +997,7 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 bool ClosestHit(Ray ray, inout HitInfo hitInfo)
 {
 	hitInfo = (HitInfo)0;
-	bool hitted = BVHHit(ray, hitInfo, false);
+	bool hitted = BVHHit3(ray, hitInfo, false);
 	return hitted;
 	//return IntersectBVH(ray, hitInfo, false);
 }
@@ -1022,7 +1006,7 @@ bool AnyHit(Ray ray)
 {
 	//bool hitted = true;
 	HitInfo hitInfo = (HitInfo)0;
-	return BVHHit(ray, hitInfo, true);
+	return BVHHit3(ray, hitInfo, true);
 	//return IntersectBVH(ray, hitInfo, true);
 
 	//return hitted;

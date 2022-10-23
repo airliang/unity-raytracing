@@ -183,7 +183,7 @@ public class BVHAccel
 	
 	public List<GPUVertex> sceneVertices;
 
-	public static bool NVMethod = true;
+	public static bool NVMethod = false;
 
 
 	public int instBVHNodeAddr = 0;
@@ -1780,52 +1780,81 @@ public class BVHAccel
 			StackEntry e = stack[stack.Count - 1];
 			stack.RemoveAt(stack.Count - 1);
 
-			//left child
-			LinearBVHNode leftChild = bvhNodes[e.node.leftChildIdx];
-			if (!leftChild.IsLeaf())
+			if (e.node.IsLeaf())
 			{
-				c0 = nodes.Count;//++nextNodeIdx;
-				stack.Add(new StackEntry(leftChild, c0));
-				nodes.Add(new GPUBVHNode());
-				c1 = -1;  //means that lefchild is not a leaf
-			}
+                const int EntrypointSentinel = 0x76543210;
+                int INVALID_INDEX = EntrypointSentinel;
+                Primitive primitive = primitives[e.node.firstPrimOffset];
+
+                c0 = botomLevelOffset[primitive.meshIndex];
+                c1 = primitive.meshInstIndex;
+                c2 = INVALID_INDEX;
+                c3 = 0;
+
+                GPUBVHNode gpuBVH = new GPUBVHNode();
+                b0 = e.node.bounds;//e.node.childrenLeft.bounds;
+                b1 = GPUBounds.DefaultBounds();//e.node.childrenRight.bounds;
+
+                //gpuBVH.b0xy = new Vector4(b0.min.x, b0.max.x, b0.min.y, b0.max.y);
+                //gpuBVH.b1xy = new Vector4(b1.min.x, b1.max.x, b1.min.y, b1.max.y);
+                //gpuBVH.b01z = new Vector4(b0.min.z, b0.max.z, b1.min.z, b1.max.z);
+                gpuBVH.b0min = b0.min;
+                gpuBVH.b0max = b0.max;
+                gpuBVH.b1min = b1.min;
+                gpuBVH.b1max = b1.max;
+
+                gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+                nodes[e.idx] = gpuBVH;
+            }
 			else
 			{
-				Primitive primitive = primitives[leftChild.firstPrimOffset];
+                //left child
+                LinearBVHNode leftChild = bvhNodes[e.node.leftChildIdx];
+                if (!leftChild.IsLeaf())
+                {
+                    c0 = nodes.Count;//++nextNodeIdx;
+                    stack.Add(new StackEntry(leftChild, c0));
+                    nodes.Add(new GPUBVHNode());
+                    c1 = -1;  //means that lefchild is not a leaf
+                }
+                else
+                {
+                    Primitive primitive = primitives[leftChild.firstPrimOffset];
 
-				c0 = botomLevelOffset[primitive.meshIndex];
-				c1 = primitive.meshInstIndex;
-			}
+                    c0 = botomLevelOffset[primitive.meshIndex];
+                    c1 = primitive.meshInstIndex;
+                }
 
-			//right child
-			LinearBVHNode rightChild = bvhNodes[e.node.rightChildIdx];
-			if (!rightChild.IsLeaf())
-			{
-				c2 = nodes.Count;//++nextNodeIdx;
-				stack.Add(new StackEntry(rightChild, c2));
-				nodes.Add(new GPUBVHNode());
-				c3 = -1;  //means that rightChild is not leaf node.
-			}
-			else
-			{
-				Primitive primitive = primitives[rightChild.firstPrimOffset];
+                //right child
+                LinearBVHNode rightChild = bvhNodes[e.node.rightChildIdx];
+                if (!rightChild.IsLeaf())
+                {
+                    c2 = nodes.Count;//++nextNodeIdx;
+                    stack.Add(new StackEntry(rightChild, c2));
+                    nodes.Add(new GPUBVHNode());
+                    c3 = -1;  //means that rightChild is not leaf node.
+                }
+                else
+                {
+                    Primitive primitive = primitives[rightChild.firstPrimOffset];
 
-				c2 = botomLevelOffset[primitive.meshIndex];
-				c3 = primitive.meshInstIndex;
-			}
+                    c2 = botomLevelOffset[primitive.meshIndex];
+                    c3 = primitive.meshInstIndex;
+                }
 
-			GPUBVHNode gpuBVH = new GPUBVHNode();
-			b0 = leftChild.bounds;//e.node.childrenLeft.bounds;
-			b1 = rightChild.bounds;//e.node.childrenRight.bounds;
+                GPUBVHNode gpuBVH = new GPUBVHNode();
+                b0 = leftChild.bounds;//e.node.childrenLeft.bounds;
+                b1 = rightChild.bounds;//e.node.childrenRight.bounds;
 
 
-			gpuBVH.b0min = b0.min;
-			gpuBVH.b0max = b0.max;
-			gpuBVH.b1min = b1.min;
-			gpuBVH.b1max = b1.max;
+                gpuBVH.b0min = b0.min;
+                gpuBVH.b0max = b0.max;
+                gpuBVH.b1min = b1.min;
+                gpuBVH.b1max = b1.max;
 
-			gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
-			nodes[e.idx] = gpuBVH;
+                gpuBVH.cids = new Vector4(MathUtil.Int32BitsToSingle(c0), MathUtil.Int32BitsToSingle(c1), MathUtil.Int32BitsToSingle(c2), MathUtil.Int32BitsToSingle(c3));
+                nodes[e.idx] = gpuBVH;
+            } 
 		}
 
         m_nodes = nodes;
