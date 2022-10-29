@@ -4,7 +4,7 @@
 #python [path of the input file] [output file]
 #example: 
 #cmd: cd D:\github\liangairan-s-rendering\Assets\RayTracing\Editor
-#python convert_tungsten D:\github\tungsten\data\example-scenes\bathroom2\scene.json D:\github\liangairan-s-rendering\Assets\RayTracing\ExampleScenes\bathroom2\bathroom2
+#python convert_tungsten.py D:\github\tungsten\data\example-scenes\bathroom2\scene.json D:\github\liangairan-s-rendering\Assets\RayTracing\ExampleScenes\bathroom2\bathroom2
 
 
 import json
@@ -146,8 +146,12 @@ def convert_envmap(shape_input, shape_output):
 def rotateZXY(R):
     return glm.rotate(R.y, (0, 1, 0)) * glm.rotate(R.x, (1, 0, 0)) * glm.rotate(R.z, (0, 0, 1)) 
 
-def convert_srt(S, R, T):
-    return glm.translate(T) * rotateZXY(R) * glm.scale(S)
+def rotateXYZ(R):
+    return glm.rotate(R.z, (0, 0, 1)) * glm.rotate(R.y, (0, 1, 0)) * glm.rotate(R.x, (1, 0, 0))
+
+
+def convert_trs(S, R, T):
+    return glm.translate(T) * rotateXYZ(R) * glm.scale(S)
 
 def decompose_matrix(M, pos, rot, scale):
     pos = M[3]
@@ -184,21 +188,18 @@ def convert_entity(shape_input, shape_type, index):
 
     bsdf = shape_input["bsdf"]
     bsdf = None if type(bsdf) == dict else bsdf
-
-    M = convert_srt(glm.vec3(scale), glm.vec3(rotation), glm.vec3(position))
-    M = glm.scale(glm.vec3([-1,1,1])) * M
-    skew = glm.vec3(0, 0, 0)
-    perspective = glm.vec4(0, 0, 0, 1)
-    scale_t = glm.vec3(1, 1, 1)
-    rotation_t = glm.quat(0, 0, 0, 1)
-    position = glm.vec3(0, 0, 0)
-    #decompose_matrix(M, position, rotation_t, scale_t)
-    glm.decompose(M, scale_t, rotation_t, position, skew, perspective)
-    rotationM = glm.mat4(rotation_t)
-    euler = glm.degrees(glm.eulerAngles(rotation_t))
+    
+    M = convert_trs(glm.vec3(scale), glm.vec3(rotation), glm.vec3(position))
+    #skew = glm.vec3(0, 0, 0)
+    #perspective = glm.vec4(0, 0, 0, 1)
+    #scale_t = glm.vec3(1, 1, 1)
+    #rotation_t = glm.quat(0, 0, 0, 1)
+    #position = glm.vec3(0, 0, 0)
+    #glm.decompose(M, scale_t, rotation_t, position, skew, perspective)
+    #rotationM = glm.mat4(rotation_t)
+    #euler = glm.degrees(glm.eulerAngles(rotation_t))
     #print("euler angle is:", euler)
-    #glm.extractEulerAngleYXZ(rotationM, euler.y, euler.x, euler.z)
-    #rotation = [glm.degrees(euler.x), glm.degrees(euler.y), glm.degrees(euler.z)] #[glm.degrees(glm.pitch(rotation)), glm.degrees(glm.yaw(rotation)), glm.degrees(glm.roll(rotation))]
+    
 
     emission = get_emission(shape_input)
     meshcontent = None
@@ -213,16 +214,16 @@ def convert_entity(shape_input, shape_type, index):
         "position" : {
             "x" : position[0],
             "y" : position[1],
-            "z" : position[2]
+            "z" : -position[2]
         },
         "scale" : {
-            "x" : abs(scale[0]),
-            "y" : abs(scale[1]),
-            "z" : abs(scale[2])
+            "x" : scale[0],
+            "y" : scale[1],
+            "z" : scale[2]
         },
         "rotation" : {
-            "x" : -rotation[0],
-            "y" : rotation[1],
+            "x" : rotation[0],
+            "y" : rotation[1] + 180,
             "z" : rotation[2]
         },
         "meshType" : shape_type,
@@ -258,7 +259,7 @@ def convert_camera(scene_input):
         "position" : {
             "x" : position[0],
             "y" : position[1],
-            "z" : position[2]
+            "z" : -position[2]
         },
         "rotation" : {
             "x" : 0,
@@ -272,7 +273,7 @@ def convert_camera(scene_input):
         "lookAt" : {
             "x" : lookat[0],
             "y" : lookat[1],
-            "z" : lookat[2]
+            "z" : -lookat[2]
         },
         "up" : {
             "x" : up[0],

@@ -863,11 +863,8 @@ public static class SceneExport
                 }
 
                 gameObject.transform.position = entity.position;
-                //entity.scale.z = -entity.scale.z;
                 gameObject.transform.localScale = entity.scale;
-                //entity.rotation.x = -entity.rotation.x;
                 gameObject.transform.eulerAngles = entity.rotation;
-                //gameObject.transform.eulerAngles = entity.rotation;
 
                 if (entity.emission.magnitude > 0)
                 {
