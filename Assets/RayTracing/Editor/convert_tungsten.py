@@ -33,7 +33,10 @@ material_table = {
     "rough_dielectric" : 4,
     "plastic" : 5,
     "oren_nayar" : 0,
+    "thinsheet" : 0,
     "mirror" : 3,
+    "transparency" : 4,
+    "null" : 0
 }
     
 
@@ -131,13 +134,14 @@ def convert_materials(scene_input):
 def get_emission(shape):
     if "emission" in shape:
         return convert_vec(shape["emission"], 3)
-    elif "power" in shape:
-        power_scale = 100 * glm.pi()
-        power = convert_vec(shape["power"], 3)
-        emission = glm.vec3(power) / power_scale
-        return [emission[0], emission[1], emission[2]]
     else:
         return [0, 0, 0]
+
+def get_power(shape):
+    if "power" in shape:
+        return shape["power"]
+    else:
+        return 0
 
 
 def convert_envmap(shape_input, shape_output):
@@ -202,6 +206,7 @@ def convert_entity(shape_input, shape_type, index):
     
 
     emission = get_emission(shape_input)
+    power = get_power(shape_input)
     meshcontent = None
     if shape_type == "mesh":
         fn = shape_input["file"]
@@ -233,7 +238,8 @@ def convert_entity(shape_input, shape_type, index):
             "x" : emission[0],
             "y" : emission[1],
             "z" : emission[2]
-        }
+        },
+        "power" : power
     }
     return ret
 

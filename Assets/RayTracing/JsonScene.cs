@@ -151,6 +151,7 @@ public static class JsonScene
         public string mesh;
         public string material;
         public Vector3 emission = Vector3.zero;
+        public float power = 0;
     }
 
     [Serializable]

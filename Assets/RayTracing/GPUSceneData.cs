@@ -390,10 +390,7 @@ public class GPUSceneData
                     areaLightInstance.light = areaLight;
                     areaLightInstance.meshInstanceID = meshInstances.Count;
                     areaLightInstance.area = lightArea;
-                    //Shape shape = meshRenderer.GetComponent<Shape>();
-                    //if (shape != null)
-                    //    areaLightInstance.radiance = shape.lightSpectrum.linear.ToVector3().Mul(shape.spectrumScale);
-                    //areaLightInstance.radiance = lightComponent.color.linear.ToVector3() * lightComponent.intensity;
+
                     Material lightMaterial = meshRenderer.sharedMaterial;
                     if (lightMaterial != null && lightMaterial.shader.name == "RayTracing/AreaLight")
                     {

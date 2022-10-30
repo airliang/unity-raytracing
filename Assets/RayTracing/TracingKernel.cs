@@ -46,7 +46,7 @@ public class RaytracingData
     public float _Exposure = 1;
     public bool _EnviromentMapEnable = true;
     public bool _UniformSampleLight = false;
-    public bool _UseBVHPlugin = false;
+    //public bool _UseBVHPlugin = true;
     public bool _SaveOutputTexture = false;
     //depth of field params
     public float _LensRadius = 0;
@@ -56,7 +56,7 @@ public class RaytracingData
 public interface TracingKernel
 {
     void Setup(Camera camera, RaytracingData data);
-    void Update(Camera camera);
+    bool Update(Camera camera);
 
     void Release();
 

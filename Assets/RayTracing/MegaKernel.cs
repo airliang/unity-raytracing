@@ -32,7 +32,7 @@ public class MegaKernel : TracingKernel
     //int samplesPerPixel = 128;
 
     int framesNum = 0;
-    private bool hasSaveImage = false;
+    
     float executeTimeBegin = 0;
     //float cameraConeSpreadAngle = 0;
 
@@ -121,7 +121,7 @@ public class MegaKernel : TracingKernel
             imageSpectrumsBuffer.enableRandomWrite = true;
         }
 
-        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, data._UseBVHPlugin);
+        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
         gpuSceneData.Setup(meshRenderers, camera);
 
@@ -134,11 +134,9 @@ public class MegaKernel : TracingKernel
         gpuFilterData.Setup(filter);
 
         SetupMegaCompute(camera);
-
-        hasSaveImage = false;
     }
 
-    public void Update(Camera camera)
+    public bool Update(Camera camera)
     {
         //if (!gpuSceneData.IsRunalbe())
         //    return;
@@ -154,15 +152,7 @@ public class MegaKernel : TracingKernel
                 float timeInterval = Time.realtimeSinceStartup - executeTimeBegin;
                 Debug.Log("Megakernel GPU rendering finished, cost time:" + timeInterval);
             }
-            if (_rayTracingData._SaveOutputTexture)
-            {
-                if (!hasSaveImage)
-                {
-                    hasSaveImage = true;
-                    SaveOutputTexture();
-                }
-            }
-            return;
+            return true;
         }
         //_InitSampler.Dispatch(_InitSamplerKernel, (int)Screen.width / 8 + 1, (int)Screen.height / 8 + 1, 1);
         int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
@@ -172,6 +162,7 @@ public class MegaKernel : TracingKernel
         _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         _MegaCompute.SetInt("framesNum", framesNum);
         _MegaCompute.Dispatch(_MegaComputeKernel, threadGroupX, threadGroupY, 1);
+        return false;
     }
 
     private void RenderToGBuffer(Camera camera)
@@ -268,19 +259,7 @@ public class MegaKernel : TracingKernel
         cs.SetTexture(kernel, "normalTexArray", RayTracingTextures.Instance.GetNormal2DArray(128));
     }
 
-    void SaveOutputTexture()
-    {
-        Texture2D texture2D = new Texture2D(outputTexture.width, outputTexture.height, TextureFormat.RGBAHalf, false);
-        texture2D.filterMode = FilterMode.Bilinear;
-        //RenderTexture.active = outputTexture;
-        Graphics.SetRenderTarget(outputTexture);
-        texture2D.ReadPixels(new Rect(0, 0, texture2D.width, texture2D.height), 0, 0, false);
-        Graphics.SetRenderTarget(null);
-        texture2D.Apply();
-        byte[] bytes = ImageConversion.EncodeArrayToEXR(texture2D.GetRawTextureData(), texture2D.graphicsFormat, (uint)texture2D.width, (uint)texture2D.height, 0, Texture2D.EXRFlags.OutputAsFloat);
-        Object.Destroy(texture2D);
-        File.WriteAllBytes(Application.dataPath + "/../SavedOutput.exr", bytes);
-    }
+    
 
     public int GetCurrentSPPCount()
     {

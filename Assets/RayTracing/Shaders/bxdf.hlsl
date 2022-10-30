@@ -3,6 +3,7 @@
 #include "sampler.hlsl"
 #include "microfacet.hlsl"
 #include "fresnel.hlsl"
+#include "geometry.hlsl"
 
 #define BXDF_REFLECTION 1
 #define BXDF_TRANSMISSION 1 << 1
@@ -401,6 +402,7 @@ struct BxDFMicrofacetReflection
         if (wh.x == 0 && wh.y == 0 && wh.z == 0)
             return float3(0, 0, 0);
         wh = normalize(wh);
+        wh = Faceforward(wh, float3(0, 0, 1));
         // For the Fresnel call, make sure that wh is in the same hemisphere
         // as the surface normal, so that TIR is handled correctly.
         float3 F = FrDielectric(abs(dot(wi, wh)), 1.0/1.5); //fresnel.Evaluate(dot(wi, Faceforward(wh, float3(0, 0, 1))));
@@ -654,11 +656,12 @@ struct BxDFFresnelBlend
             //u[0] = min(2 * (1.0 - fr) * u[0], ONE_MINUS_EPSILON);
             // Sample microfacet orientation $\wh$ and reflected direction $\wi$
             float3 wh = Sample_wh(u, wo);
+            wh = Faceforward(wh, float3(0, 0, 1));
             wi = normalize(reflect(-wo, wh));
             if (!SameHemisphere(wo, wi))
                 return bsdfSample;
             float D = TrowbridgeReitzD(wh, alphax, alphay);
-            float3 specular = SchlickFresnel(dot(wi, wh)) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
+            float3 specular = SchlickFresnel(abs(dot(wi, wh))) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
             bsdfSample.reflectance = specular;
             float pdf_wh = Pdf_wh(D, wh);
             pdf = fr * pdf_wh / (4.0 * dot(wo, wh));
@@ -689,9 +692,10 @@ struct BxDFFresnelBlend
         if (wh.x == 0 && wh.y == 0 && wh.z == 0) 
             return 0;
         wh = normalize(wh);
+        wh = Faceforward(wh, float3(0, 0, 1));
         float fr = FrDielectric(CosTheta(wo), 1.0 / eta.x);
         float D = TrowbridgeReitzD(wh, alphax, alphay);
-        float3 specular = SchlickFresnel(dot(wi, wh)) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
+        float3 specular = SchlickFresnel(abs(dot(wi, wh))) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));
         float pdf_wh = Pdf_wh(D, wh);
         pdf = (1.0 - fr) * AbsCosTheta(wi) * INV_PI + fr * pdf_wh / (4.0 * dot(wo, wh));
         return diffuse + specular;

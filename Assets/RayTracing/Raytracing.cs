@@ -5,6 +5,8 @@ using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 using UnityEngine.XR;
+using System.IO;
+using UnityEngine.SceneManagement;
 
 
 //[ExecuteInEditMode]
@@ -18,6 +20,7 @@ public class Raytracing : MonoBehaviour
     private Camera cameraComponent;
     public Material _BlitMaterial;
     private int cullingMask = 0;
+    private bool hasSaveImage = false;
 
     void Start()
     {
@@ -45,11 +48,22 @@ public class Raytracing : MonoBehaviour
 
         cullingMask = cameraComponent.cullingMask;
         cameraComponent.cullingMask = 0;
+        hasSaveImage = false;
     }
 
     void Update()
     {
-        _RaytracingKernel.Update(cameraComponent);
+        if (_RaytracingKernel.Update(cameraComponent))
+        {
+            if (_RayTracingData._SaveOutputTexture)
+            {
+                if (!hasSaveImage)
+                {
+                    SaveOutputTexture();
+                    hasSaveImage = true;
+                }
+            }
+        }
         if (_BlitMaterial != null)
         {
             _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
@@ -150,5 +164,20 @@ public class Raytracing : MonoBehaviour
         unityRay.origin = ray.orig;
         unityRay.direction = ray.direction;
         return unityBounds.IntersectRay(unityRay);
+    }
+
+    void SaveOutputTexture()
+    {
+        RenderTexture outputTexture = _RaytracingKernel.GetOutputTexture();
+        Texture2D texture2D = new Texture2D(outputTexture.width, outputTexture.height, TextureFormat.RGBAHalf, false);
+        texture2D.filterMode = FilterMode.Bilinear;
+        //RenderTexture.active = outputTexture;
+        Graphics.SetRenderTarget(outputTexture);
+        texture2D.ReadPixels(new Rect(0, 0, texture2D.width, texture2D.height), 0, 0, false);
+        Graphics.SetRenderTarget(null);
+        texture2D.Apply();
+        byte[] bytes = ImageConversion.EncodeArrayToEXR(texture2D.GetRawTextureData(), texture2D.graphicsFormat, (uint)texture2D.width, (uint)texture2D.height, 0, Texture2D.EXRFlags.OutputAsFloat);
+        UnityEngine.Object.Destroy(texture2D);
+        File.WriteAllBytes(Application.dataPath + "/../" + SceneManager.GetActiveScene().name + ".exr", bytes);
     }
 }

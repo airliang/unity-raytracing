@@ -24,6 +24,9 @@ We can convert the tungsten json format to our own format which is also using js
 ### bathroom2
 10000 spp, ACE tonemapping
 ![](ScreenShots/bathroom2.jpg)
+### kitchen
+15000 spp, ACE tonemapping
+![](ScreenShots/kitchen.jpg)
 ### depth of field and glass material
 ![](ScreenShots/dof_glass.jpg)
 

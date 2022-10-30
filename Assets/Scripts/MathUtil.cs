@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-
+using UnityEngine.UIElements;
 
 public static class MathUtil
 {
@@ -240,6 +240,155 @@ public static class MathUtil
     public static Vector4 LinearToVector4(this Color c)
     {
         return new Vector4(c.linear.r, c.linear.g, c.linear.b, c.linear.a);
+    }
+
+    private static UnityEngine.Vector3 WeightedAvg(
+            UnityEngine.Vector3 a,
+            UnityEngine.Vector3 b,
+            float aWeight,
+            float bWeight)
+    {
+        return (a * aWeight) + (b * bWeight);
+    }
+
+    public static bool DecomposeMatrix(this Matrix4x4 matrix, out Vector3 translation, out Quaternion rotation, out Vector3 scale)
+    {
+        translation = new UnityEngine.Vector3();
+        rotation = new UnityEngine.Quaternion();
+        scale = new UnityEngine.Vector3();
+
+        if (matrix[3, 3] == 0.0f)
+        {
+            return false;
+        }
+
+        // Normalize the matrix.
+        for (int i = 0; i < 4; ++i)
+        {
+            for (int j = 0; j < 4; ++j)
+            {
+                matrix[i, j] /= matrix[3, 3];
+            }
+        }
+
+        // perspectiveMatrix is used to solve for perspective, but it also provides
+        // an easy way to test for singularity of the upper 3x3 component.
+        UnityEngine.Matrix4x4 persp = matrix;
+
+        for (int i = 0; i < 3; i++)
+        {
+            persp[3, i] = 0;
+        }
+        persp[3, 3] = 1;
+
+        if (persp.determinant == 0.0f)
+        {
+            return false;
+        }
+
+        // Next take care of translation (easy).
+        translation = new UnityEngine.Vector3(matrix[0, 3], matrix[1, 3], matrix[2, 3]);
+        matrix[3, 0] = 0;
+        matrix[3, 1] = 0;
+        matrix[3, 2] = 0;
+
+        UnityEngine.Vector3[] rows = new UnityEngine.Vector3[3];
+        UnityEngine.Vector3 Pdum3;
+
+        // Now get scale and shear.
+        for (int i = 0; i < 3; ++i)
+        {
+            rows[i].x = matrix[0, i];
+            rows[i].y = matrix[1, i];
+            rows[i].z = matrix[2, i];
+        }
+
+        // Compute X scale factor and normalize first row.
+        scale.x = rows[0].magnitude;
+        rows[0] = rows[0].normalized;
+
+        // Compute XY shear factor and make 2nd row orthogonal to 1st.
+        UnityEngine.Vector3 Skew;
+        Skew.z = UnityEngine.Vector3.Dot(rows[0], rows[1]);
+        rows[1] = WeightedAvg(rows[1], rows[0], 1, -Skew.z);
+
+        // Now, compute Y scale and normalize 2nd row.
+        scale.y = rows[1].magnitude;
+        rows[1] = rows[1].normalized;
+
+        // Compute XZ and YZ shears, orthogonalize 3rd row.
+        Skew.y = UnityEngine.Vector3.Dot(rows[0], rows[2]);
+        rows[2] = WeightedAvg(rows[2], rows[0], 1, -Skew.y);
+
+        Skew.x = UnityEngine.Vector3.Dot(rows[1], rows[2]);
+        rows[2] = WeightedAvg(rows[2], rows[1], 1, -Skew.x);
+
+        // Next, get Z scale and normalize 3rd row.
+        scale.z = rows[2].magnitude;
+        rows[2] = rows[2].normalized;
+
+        // At this point, the matrix (in rows[]) is orthonormal.
+        // Check for a coordinate system flip.  If the determinant
+        // is -1, then negate the matrix and the scaling factors.
+        Pdum3 = UnityEngine.Vector3.Cross(rows[1], rows[2]);
+        if (UnityEngine.Vector3.Dot(rows[0], Pdum3) < 0)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                scale[i] *= -1;
+                rows[i] *= -1;
+            }
+        }
+
+        // Now, get the rotations out, as described in the gem.
+
+#if false
+            // Euler Angles.
+            rotation.y = UnityEngine.Mathf.Asin(-rows[0][2]);
+            if (Mathf.Cos(rotation.y) != 0)
+            {
+                rotation.x = UnityEngine.Mathf.Atan2(rows[1][2], rows[2][2]);
+                rotation.z = UnityEngine.Mathf.Atan2(rows[0][1], rows[0][0]);
+            }
+            else
+            {
+                rotation.x = UnityEngine.Mathf.Atan2(-rows[2][0], rows[1][1]);
+                rotation.z = 0;
+            }
+#else
+        // Quaternions.
+        {
+            int i, j, k = 0;
+            float root, trace = rows[0].x + rows[1].y + rows[2].z;
+            if (trace > 0)
+            {
+                root = UnityEngine.Mathf.Sqrt(trace + 1.0f);
+                rotation.w = 0.5f * root;
+                root = 0.5f / root;
+                rotation.x = root * (rows[1].z - rows[2].y);
+                rotation.y = root * (rows[2].x - rows[0].z);
+                rotation.z = root * (rows[0].y - rows[1].x);
+            } // End if > 0
+            else
+            {
+                int[] Next = new int[] { 1, 2, 0 };
+                i = 0;
+                if (rows[1].y > rows[0].x) i = 1;
+                if (rows[2].z > rows[i][i]) i = 2;
+                j = Next[i];
+                k = Next[j];
+
+                root = UnityEngine.Mathf.Sqrt(rows[i][i] - rows[j][j] - rows[k][k] + 1.0f);
+
+                rotation[i] = 0.5f * root;
+                root = 0.5f / root;
+                rotation[j] = root * (rows[i][j] + rows[j][i]);
+                rotation[k] = root * (rows[i][k] + rows[k][i]);
+                rotation.w = root * (rows[j][k] - rows[k][j]);
+            } // End if <= 0
+        }
+#endif
+        return true;
     }
 
     public static float Y(this Color c)

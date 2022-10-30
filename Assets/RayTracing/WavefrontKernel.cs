@@ -135,7 +135,7 @@ public class WavefrontKernel : TracingKernel
             outputTexture.enableRandomWrite = true;
         }
 
-        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, data._UseBVHPlugin);
+        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
         gpuSceneData.Setup(meshRenderers, camera);
 
@@ -261,7 +261,7 @@ public class WavefrontKernel : TracingKernel
         ReleaseComputeBuffer(shadowRayItemBuffer);
     }
 
-    public void Update(Camera camera)
+    public bool Update(Camera camera)
     {
         if (framesNum == 0)
         {
@@ -277,7 +277,7 @@ public class WavefrontKernel : TracingKernel
                 float timeInterval = Time.realtimeSinceStartup - executeTimeBegin;
                 Debug.Log("Wavefront GPU rendering finished, cost time:" + timeInterval);
             }
-            return;
+            return true;
         }
 
         RenderToGBuffer(camera);
@@ -373,6 +373,8 @@ public class WavefrontKernel : TracingKernel
             DebugView.Dispatch(kDebugView, threadGroupX, threadGroupY, 1);
                 
         }
+
+        return false;
     }
 
     private void ResetQueues(int nextRaySizeIndex)
@@ -667,9 +669,9 @@ public class WavefrontKernel : TracingKernel
         DebugView.SetBuffer(kDebugView, "_WorkQueueItems", workItemBuffer);
         DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
         DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        
-        //DebugView.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
-        //DebugView.SetMatrix("WorldToRaster", WorldToRaster);
+
+        DebugView.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
+        DebugView.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         DebugView.SetFloat("cameraFar", camera.farClipPlane);
         SetTextures(DebugView, kDebugView);
         DebugView.SetTexture(kDebugView, "outputTexture", outputTexture);

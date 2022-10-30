@@ -832,6 +832,10 @@ public static class SceneExport
                 }
                 gameObject.name = entity.name;
 
+                gameObject.transform.position = entity.position;
+                gameObject.transform.localScale = entity.scale;
+                gameObject.transform.eulerAngles = entity.rotation;
+
                 MeshRenderer meshRenderer = null;
                 if (mesh != null)
                 {
@@ -849,10 +853,34 @@ public static class SceneExport
                     meshRenderer = gameObject.GetComponentInChildren<MeshRenderer>();
                 }
 
-                if (entity.emission != Vector3.zero)
+                if (entity.emission != Vector3.zero || entity.power > 0)
                 {
                     meshRenderer.sharedMaterial = new Material(Shader.Find("RayTracing/AreaLight"));
-                    meshRenderer.sharedMaterial.SetVector("_Intensity", entity.emission);
+                    if (entity.emission != Vector3.zero)
+                        meshRenderer.sharedMaterial.SetVector("_Intensity", entity.emission);
+                    else
+                    {
+                        //caculate the emission
+                        float area = 0;
+                        List<Vector3> meshVertices = new List<Vector3>();
+                        mesh.GetVertices(meshVertices);
+                        for (int sm = 0; sm < mesh.subMeshCount; ++sm)
+                        {
+                            List<int> meshTriangles = new List<int>();
+                            mesh.GetTriangles(meshTriangles, sm);
+                            for (int t = 0; t < meshTriangles.Count; t += 3)
+                            {
+                                Vector3 p0 = gameObject.transform.TransformPoint(meshVertices[meshTriangles[t]]);
+                                Vector3 p1 = gameObject.transform.TransformPoint(meshVertices[meshTriangles[t + 1]]);
+                                Vector3 p2 = gameObject.transform.TransformPoint(meshVertices[meshTriangles[t + 2]]);
+                                float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
+                                area += triangleArea;
+                            }
+                        }
+                        float radiance = entity.power / area;
+                        entity.emission = new Vector3(radiance, radiance, radiance);
+                        meshRenderer.sharedMaterial.SetVector("_Intensity", entity.emission);
+                    }
                 }
                 else
                 {
@@ -862,11 +890,9 @@ public static class SceneExport
                         meshRenderer.sharedMaterial = GetDefaultMaterial();
                 }
 
-                gameObject.transform.position = entity.position;
-                gameObject.transform.localScale = entity.scale;
-                gameObject.transform.eulerAngles = entity.rotation;
+                
 
-                if (entity.emission.magnitude > 0)
+                if (entity.emission.magnitude > 0 || entity.power > 0)
                 {
                     //arealight
                     Light light = gameObject.AddComponent<Light>();
