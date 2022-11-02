@@ -106,35 +106,45 @@ public class MegaKernel : TracingKernel
 
     public IEnumerator Setup(Camera camera, RaytracingData data)
     {
-        _rayTracingData = data;
-
-        if (outputTexture == null)
+        while (RaytracingStates.states != RaytracingStates.States.Rendering)
         {
-            outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
-            outputTexture.enableRandomWrite = true;
+            if (RaytracingStates.states == RaytracingStates.States.SceneLoading)
+            {
+                _rayTracingData = data;
+
+                if (outputTexture == null)
+                {
+                    outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
+                    outputTexture.enableRandomWrite = true;
+                }
+
+                if (imageSpectrumsBuffer == null)
+                {
+                    imageSpectrumsBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, 0);
+                    imageSpectrumsBuffer.enableRandomWrite = true;
+                }
+
+                gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
+                meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
+                yield return gpuSceneData.Setup(meshRenderers, camera);
+            }
+
+            if (RaytracingStates.states == RaytracingStates.States.PrepareRendering)
+            {
+
+                gpuFilterData = new GPUFilterData();
+                Filter filter = null;
+                if (data.filterType == FilterType.Gaussian)
+                {
+                    filter = new GaussianFilter(data.fiterRadius, data.gaussianSigma);
+                }
+                gpuFilterData.Setup(filter);
+
+                SetupMegaCompute(camera);
+                RaytracingStates.states = RaytracingStates.States.Rendering;
+                yield return null;
+            }
         }
-
-        if (imageSpectrumsBuffer == null)
-        {
-            imageSpectrumsBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, 0);
-            imageSpectrumsBuffer.enableRandomWrite = true;
-        }
-
-        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
-        meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        yield return gpuSceneData.Setup(meshRenderers, camera);
-
-        gpuFilterData = new GPUFilterData();
-        Filter filter = null;
-        if (data.filterType == FilterType.Gaussian)
-        {
-            filter = new GaussianFilter(data.fiterRadius, data.gaussianSigma);
-        }
-        gpuFilterData.Setup(filter);
-
-        SetupMegaCompute(camera);
-
-        yield return null;
     }
 
     public bool Update(Camera camera)
