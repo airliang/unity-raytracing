@@ -34,7 +34,6 @@ public class MegaKernel : TracingKernel
     int framesNum = 0;
     
     float executeTimeBegin = 0;
-    //float cameraConeSpreadAngle = 0;
 
     public MegaKernel(MegaKernelResource resource)
     {
@@ -105,7 +104,7 @@ public class MegaKernel : TracingKernel
         ReleaseRenderTexture(imageSpectrumsBuffer);
     }
 
-    public void Setup(Camera camera, RaytracingData data)
+    public IEnumerator Setup(Camera camera, RaytracingData data)
     {
         _rayTracingData = data;
 
@@ -123,7 +122,7 @@ public class MegaKernel : TracingKernel
 
         gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
         meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        gpuSceneData.Setup(meshRenderers, camera);
+        yield return gpuSceneData.Setup(meshRenderers, camera);
 
         gpuFilterData = new GPUFilterData();
         Filter filter = null;
@@ -134,6 +133,8 @@ public class MegaKernel : TracingKernel
         gpuFilterData.Setup(filter);
 
         SetupMegaCompute(camera);
+
+        yield return null;
     }
 
     public bool Update(Camera camera)

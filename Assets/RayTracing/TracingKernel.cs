@@ -53,9 +53,11 @@ public class RaytracingData
     public float _FocalLength = 1;
 }
 
+
+
 public interface TracingKernel
 {
-    void Setup(Camera camera, RaytracingData data);
+    IEnumerator Setup(Camera camera, RaytracingData data);
     bool Update(Camera camera);
 
     void Release();

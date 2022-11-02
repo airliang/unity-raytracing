@@ -8,6 +8,31 @@ using UnityEngine.XR;
 using System.IO;
 using UnityEngine.SceneManagement;
 
+public class RaytracingStates
+{
+    public enum States
+    {
+        SceneLoading,
+        BuildingBVH,
+        PrepareRendering,
+        Rendering,
+        Terminate,
+    }
+
+    public static States states = States.Terminate;
+    public static States GetRayTracingStates()
+    {
+        return states;
+    }
+
+    public static void SetRayTracingStates(States _states)
+    {
+        states = _states;
+    }
+
+    public static string displayText;
+}
+
 
 //[ExecuteInEditMode]
 [RequireComponent(typeof(Camera))]
@@ -24,6 +49,8 @@ public class Raytracing : MonoBehaviour
 
     void Start()
     {
+        RaytracingStates.SetRayTracingStates(RaytracingStates.States.SceneLoading);
+        RaytracingStates.displayText = "Loading scene...";
         if (_RayTracingData._kernelType == RaytracingData.KernelType.Wavefront)
         {
             //WavefrontResource wavefrontResource = new WavefrontResource();
@@ -35,7 +62,7 @@ public class Raytracing : MonoBehaviour
         }
 
         cameraComponent = GetComponent<Camera>();
-        _RaytracingKernel.Setup(cameraComponent, _RayTracingData);
+        
 
         if (_BlitMaterial == null)
         {
@@ -49,40 +76,45 @@ public class Raytracing : MonoBehaviour
         cullingMask = cameraComponent.cullingMask;
         cameraComponent.cullingMask = 0;
         hasSaveImage = false;
+
+        StartCoroutine(_RaytracingKernel.Setup(cameraComponent, _RayTracingData));
     }
 
     void Update()
     {
-        if (_RaytracingKernel.Update(cameraComponent))
+        if (RaytracingStates.states == RaytracingStates.States.Rendering)
         {
-            if (_RayTracingData._SaveOutputTexture)
+            if (_RaytracingKernel.Update(cameraComponent))
             {
-                if (!hasSaveImage)
+                if (_RayTracingData._SaveOutputTexture)
                 {
-                    SaveOutputTexture();
-                    hasSaveImage = true;
+                    if (!hasSaveImage)
+                    {
+                        SaveOutputTexture();
+                        hasSaveImage = true;
+                    }
                 }
             }
-        }
-        if (_BlitMaterial != null)
-        {
-            _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
-        }
+            if (_BlitMaterial != null)
+            {
+                _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
+            }
 
-        if (Input.GetMouseButtonUp(0))
-        {
-            Vector3 radiance = RayTracingTest.OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1, 
-                _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
-            Vector3 K = new Vector3(3.9747f, 2.38f, 1.5998f);
-            Vector3 etaT = new Vector3(0.1428f, 0.3741f, 1.4394f);
-            float cosTheta = 0.3f;
-            Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
-            Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
-        }
-        else if (Input.GetMouseButtonUp(1))
-        {
-            Vector3 radiance = RayTracingTest.OnePathTracing(250, 250, (int)Screen.width, 1,
-               _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
+            if (Input.GetMouseButtonUp(0))
+            {
+                Vector3 radiance = RayTracingTest.OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1,
+                    _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
+                Vector3 K = new Vector3(3.9747f, 2.38f, 1.5998f);
+                Vector3 etaT = new Vector3(0.1428f, 0.3741f, 1.4394f);
+                float cosTheta = 0.3f;
+                Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
+                Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
+            }
+            else if (Input.GetMouseButtonUp(1))
+            {
+                Vector3 radiance = RayTracingTest.OnePathTracing(250, 250, (int)Screen.width, 1,
+                   _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
+            }
         }
     }
 
@@ -105,66 +137,44 @@ public class Raytracing : MonoBehaviour
 
     private void OnGUI()
     {
-        var x = 25;
-        var y = 20;
+        if (_RaytracingKernel != null)
+        {
+            RaytracingStates.States rayTracingStates = RaytracingStates.GetRayTracingStates();
+            switch (rayTracingStates)
+            {
+                case RaytracingStates.States.Rendering:
+                    {
+                        //var x = 25;
+                        //var y = 20;
 
-        GUI.TextArea(new Rect(x, y, 400, 20),
-            string.Format("SPP:{0} ", _RaytracingKernel.GetCurrentSPPCount()), GUI.skin.label);
+                        //GUI.TextArea(new Rect(x, y, 400, 20),
+                        //    string.Format("SPP:{0} ", _RaytracingKernel.GetCurrentSPPCount()), GUI.skin.label);
+                        break;
+                    }
+                case RaytracingStates.States.BuildingBVH:
+                    {
+                        var centeredStyle = GUI.skin.GetStyle("Label");
+                        centeredStyle.alignment = TextAnchor.UpperCenter;
+                        centeredStyle.fontSize = 30;
+                        GUI.Label(new Rect(0, Screen.height / 2 - 25, Screen.width, 50), RaytracingStates.displayText, centeredStyle);
+                        break;
+                    }
+                case RaytracingStates.States.SceneLoading:
+                    {
+                        var centeredStyle = GUI.skin.GetStyle("Label");
+                        centeredStyle.alignment = TextAnchor.UpperCenter;
+                        centeredStyle.fontSize = 30;
+                        GUI.Label(new Rect(0, Screen.height / 2 - 25, Screen.width, 50), RaytracingStates.displayText, centeredStyle);
+                        break;
+                    }
+                default:
+                    break;
+            }
 
+        }
     }
 
-
-    Vector3 MinOrMax(GPUBounds box, int n)
-    {
-        return n == 0 ? box.min : box.max;
-    }
-    Vector3 Corner(GPUBounds box, int n)
-    {
-        return new Vector3(MinOrMax(box, n & 1).x,
-            MinOrMax(box, (n & 2) > 0 ? 1 : 0).y,
-            MinOrMax(box, (n & 4) > 0 ? 1 : 0).z);
-    }
-    bool BoundIntersectP(GPURay ray, GPUBounds bounds, Vector3 invDir, int[] dirIsNeg)
-    {
-        // Check for ray intersection against $x$ and $y$ slabs
-        float tMin = (MinOrMax(bounds, dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-        float tMax = (MinOrMax(bounds, 1 - dirIsNeg[0]).x - ray.orig.x) * invDir.x;
-        float tyMin = (MinOrMax(bounds, dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-        Vector3 corner4 = MinOrMax(bounds, 1 - dirIsNeg[1]);
-        float tyMax = (MinOrMax(bounds, 1 - dirIsNeg[1]).y - ray.orig.y) * invDir.y;
-
-        // Update _tMax_ and _tyMax_ to ensure robust bounds intersection
-        //tMax *= 1 + 2 * gamma(3);
-        //tyMax *= 1 + 2 * gamma(3);
-        if (tMin > tyMax || tyMin > tMax)
-            return false;
-        if (tyMin > tMin)
-            tMin = tyMin;
-        if (tyMax < tMax)
-            tMax = tyMax;
-
-        // Check for ray intersection against $z$ slab
-        float tzMin = (MinOrMax(bounds, dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-        float tzMax = (MinOrMax(bounds, 1 - dirIsNeg[2]).z - ray.orig.z) * invDir.z;
-
-        // Update _tzMax_ to ensure robust bounds intersection
-        //tzMax *= 1 + 2 * gamma(3);
-        if (tMin > tzMax || tzMin > tMax)
-            return false;
-        if (tzMin > tMin) tMin = tzMin;
-        if (tzMax < tMax) tMax = tzMax;
-        return (tMin < ray.tMax) && (tMax > 0);
-    }
-
-    bool IntersectRay(GPUBounds bounds, GPURay ray)
-    {
-        Bounds unityBounds = new Bounds();
-        unityBounds.SetMinMax(bounds.min, bounds.max);
-        Ray unityRay = new Ray();
-        unityRay.origin = ray.orig;
-        unityRay.direction = ray.direction;
-        return unityBounds.IntersectRay(unityRay);
-    }
+    
 
     void SaveOutputTexture()
     {

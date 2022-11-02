@@ -656,7 +656,6 @@ struct BxDFFresnelBlend
             //u[0] = min(2 * (1.0 - fr) * u[0], ONE_MINUS_EPSILON);
             // Sample microfacet orientation $\wh$ and reflected direction $\wi$
             float3 wh = Sample_wh(u, wo);
-            wh = Faceforward(wh, float3(0, 0, 1));
             wi = normalize(reflect(-wo, wh));
             if (!SameHemisphere(wo, wi))
                 return bsdfSample;
@@ -692,7 +691,6 @@ struct BxDFFresnelBlend
         if (wh.x == 0 && wh.y == 0 && wh.z == 0) 
             return 0;
         wh = normalize(wh);
-        wh = Faceforward(wh, float3(0, 0, 1));
         float fr = FrDielectric(CosTheta(wo), 1.0 / eta.x);
         float D = TrowbridgeReitzD(wh, alphax, alphay);
         float3 specular = SchlickFresnel(abs(dot(wi, wh))) * D / (4.0 * abs(dot(wi, wh)) * max(AbsCosTheta(wi), AbsCosTheta(wo)));

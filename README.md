@@ -22,8 +22,8 @@ We can convert the tungsten json format to our own format which is also using js
 ### staircase2
 ![](ScreenShots/staircase2.gif)
 ### bathroom2
-10000 spp, ACE tonemapping
-![](ScreenShots/bathroom2.jpg)
+20000 spp, Filmic tonemapping
+![](ScreenShots/bathroom2.png)
 ### kitchen
 15000 spp, ACE tonemapping
 ![](ScreenShots/kitchen.jpg)

@@ -124,67 +124,80 @@ public class WavefrontKernel : TracingKernel
         return gpuFilterData;
     }
 
-    public void Setup(Camera camera, RaytracingData data)
+    public IEnumerator Setup(Camera camera, RaytracingData data)
     {
-        _rayTracingData = data;
-        MAX_PATH = data.MaxDepth;
-
-        if (outputTexture == null)
+        while (RaytracingStates.states != RaytracingStates.States.Rendering)
         {
-            outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
-            outputTexture.enableRandomWrite = true;
+            if (RaytracingStates.states == RaytracingStates.States.SceneLoading)
+            {
+                _rayTracingData = data;
+                MAX_PATH = data.MaxDepth;
+
+                if (outputTexture == null)
+                {
+                    outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
+                    outputTexture.enableRandomWrite = true;
+                }
+
+                gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
+                meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
+                yield return gpuSceneData.Setup(meshRenderers, camera);
+            }
+
+
+            if (RaytracingStates.states == RaytracingStates.States.PrepareRendering)
+            {
+                gpuFilterData = new GPUFilterData();
+                if (data.filterType == FilterType.Gaussian)
+                {
+                    filter = new GaussianFilter(data.fiterRadius, data.gaussianSigma);
+                }
+                gpuFilterData.Setup(filter);
+
+                RayQueueSizeArray = new uint[MAX_PATH * 5];
+                for (int i = 0; i < RayQueueSizeArray.Length; ++i)
+                {
+                    RayQueueSizeArray[i] = 0;
+                }
+
+                SetupSamplers();
+
+                SetupGPUBuffers();
+
+                //generate ray
+                //init the camera parameters
+                Profiler.BeginSample("SetupGenerateRay");
+                SetupGenerateRay(camera);
+                Profiler.EndSample();
+
+                Profiler.BeginSample("SetupResetRayQueues");
+                SetupResetRayQueues();
+                Profiler.EndSample();
+
+                Profiler.BeginSample("SetupRayTraversal");
+                SetupRayTraversal();
+                Profiler.EndSample();
+
+                SetupRayMiss();
+                SetupHitAreaLight();
+
+                Profiler.BeginSample("SetupEstimateDirect");
+                SetupEstimateDirect();
+                Profiler.EndSample();
+
+                SetupShadowRayLighting();
+
+                //SetupGeneratePath();
+                Profiler.BeginSample("SetupImageReconstruction");
+                SetupImageReconstruction();
+                Profiler.EndSample();
+
+                SetupRayQueueClear();
+
+                RaytracingStates.states = RaytracingStates.States.Rendering;
+                yield return null;
+            }
         }
-
-        gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
-        meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        gpuSceneData.Setup(meshRenderers, camera);
-
-        gpuFilterData = new GPUFilterData();
-        if (data.filterType == FilterType.Gaussian)
-        {
-            filter = new GaussianFilter(data.fiterRadius, data.gaussianSigma);
-        }
-        gpuFilterData.Setup(filter);
-
-        RayQueueSizeArray = new uint[MAX_PATH * 5];
-        for (int i = 0; i < RayQueueSizeArray.Length; ++i)
-        {
-            RayQueueSizeArray[i] = 0;
-        }
-
-        SetupSamplers();
-
-        SetupGPUBuffers();
-
-        //generate ray
-        //init the camera parameters
-        Profiler.BeginSample("SetupGenerateRay");
-        SetupGenerateRay(camera);
-        Profiler.EndSample();
-
-        Profiler.BeginSample("SetupResetRayQueues");
-        SetupResetRayQueues();
-        Profiler.EndSample();
-
-        Profiler.BeginSample("SetupRayTraversal");
-        SetupRayTraversal();
-        Profiler.EndSample();
-
-        SetupRayMiss();
-        SetupHitAreaLight();
-
-        Profiler.BeginSample("SetupEstimateDirect");
-        SetupEstimateDirect();
-        Profiler.EndSample();
-
-        SetupShadowRayLighting();
-
-        //SetupGeneratePath();
-        Profiler.BeginSample("SetupImageReconstruction");
-        SetupImageReconstruction();
-        Profiler.EndSample();
-
-        SetupRayQueueClear();
     }
 
     public RenderTexture GetOutputTexture()
