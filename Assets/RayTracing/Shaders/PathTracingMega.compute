@@ -75,7 +75,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     if (debugView == 0)
     {
         float3 li = PathLi(ray, id.xy, rng);
-        float3 radiance = li; // LinearToGammaSpace(ACESToneMapping(li, _Exposure));
+        float3 radiance = li; 
         //third step: output the final radiance to texture
         float3 spectrum = spectrums[id.xy];
         float t = 1.0f / framesNum;

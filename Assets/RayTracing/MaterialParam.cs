@@ -31,7 +31,7 @@ public class MaterialParam
 {
     public int materialType;
     public Texture2D AlbedoMap;
-
+    public Vector4 Albedo_ST;
     public Color BaseColor = Color.white;
     public Vector3 LinearBaseColor = Vector3.one;
     private bool useLinearBaseColor = false;
@@ -140,6 +140,7 @@ public class MaterialParam
                 materialParam.GlossySpecularColor = material.GetColor("_GlossySpecularColor");
             }
             materialParam.fresnelType = material.GetFloat("_FresnelType");
+            materialParam.Albedo_ST = material.GetVector("_MainTex_ST");
         }
         else if (material.shader.name == "RayTracing/AreaLight")
         {
@@ -192,6 +193,7 @@ public class MaterialParam
         gpuMaterial.transmission = Transmission.LinearToVector3();
         gpuMaterial.fresnelType = fresnelType;
         gpuMaterial.specularColor = GlossySpecularColor.ToVector3();
+        gpuMaterial.albedo_ST = Albedo_ST;
 
         if (NormalMap != null)
         {

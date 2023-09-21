@@ -25,6 +25,8 @@
 #define GET_TEXTUREARRAY_ID(x) (((x) & 0x0000ff00) >> 8)
 #define GET_TEXTUREARRAY_INDEX(x) ((x) & 0x000000ff)
 
+#define TEXTURE_DEFAULT_SIZE 512
+
 struct TextureSampleInfo
 {
 	float cosine;
@@ -64,7 +66,7 @@ float4 SampleGlossySpecularTexture(float2 uv, int texIndex, float mipmapLevel)
 float GetTriangleLODConstant(float screenSpaceArea, float uvArea)
 {
 	float P_a = screenSpaceArea;     // Eq. 5
-	float T_a = uvArea * 512 * 512;  // Eq. 4
+	float T_a = uvArea * TEXTURE_DEFAULT_SIZE * TEXTURE_DEFAULT_SIZE;  // Eq. 4
 	return 0.5 * max(log2(T_a / P_a), 0); // Eq. 3
 }
 
@@ -94,7 +96,8 @@ void UnpackShadingMaterial(Material material, inout ShadingMaterial shadingMater
 		textureIndex = GET_TEXTUREARRAY_INDEX(mask);
 		
 		float mipmapLevel = ComputeTextureLOD(texLod);
-		float4 albedo = SampleAlbedoTexture(texLod.uv.xy, textureIndex, mipmapLevel);
+        float2 uv = texLod.uv.xy * material.albedo_ST.xy + material.albedo_ST.zw;
+		float4 albedo = SampleAlbedoTexture(uv, textureIndex, mipmapLevel);
 		shadingMaterial.reflectance *= albedo.rgb;
 	}
 	shadingMaterial.specular = material.ks;

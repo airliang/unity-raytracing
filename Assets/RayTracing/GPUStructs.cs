@@ -349,7 +349,7 @@ public struct GPUMaterial
     public float normalMapMask;
     public float metallicMapMask;
     public float fresnelType;
-
+    public Vector4 albedo_ST;
 }
 
 public struct GPUPathRadiance

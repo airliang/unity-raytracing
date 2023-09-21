@@ -59,6 +59,7 @@ struct Material
 	float normalMapMask;
 	float metallicMapMask;
 	float fresnelType;
+    float4 albedo_ST;
 };
 
 struct DisneyMaterial
@@ -142,17 +143,9 @@ struct Interaction  //64byte
 	float  primArea;
 	int   materialID;
 	uint   meshInstanceID;
-	//uint   triangleIndex;  //triangle index in this mesh
-	//float  spreadAngle;   //ray cone angle use for mipmapping
 	float  coneWidth;     //ray cone width at this surface point
 	float  screenSpaceArea;
 	float  uvArea;
-	//int3   vertexIndices;
-	//int    primitive; //intersect with primitives index, -1 represents no intersection
-	//bool IsHit()
-	//{
-	//	return hitT > 0;
-	//}
 
 	float3 WorldToLocal(float3 v)
 	{
