@@ -570,7 +570,10 @@ public class GPUSceneData
             envmapEnable = true;
         }
         else
+        {
+            envLight.CreateDistributions();
             envmapEnable = false;
+        }
 
         if (envmapEnable)
             envmapEnable = _envmapEnable;
