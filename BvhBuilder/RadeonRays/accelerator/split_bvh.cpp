@@ -3,7 +3,8 @@
 #include <cassert>
 #include <cmath>
 #include "../math/mathutils.h"
-#include "../log/log.h"
+//#include "../log/log.h"
+#include <sstream>
 
 using namespace std;
 
@@ -39,11 +40,11 @@ namespace RadeonRays
 
         std::stringstream ss;
         ss << "Build SplitBvh number of bounds:" << numbounds;
-        Logger::Log(ss.str());
+        //Logger::Log(ss.str());
         ss.clear();
         ss.str("");
         ss << "After BuildNode primrefs size:" << primrefs.size() << " totalNodes size:" << m_totalNodes << " m_packed_indices size:" << m_packed_indices.size() << " bvh tree height:" <<m_height;
-        Logger::Log(ss.str());
+        //Logger::Log(ss.str());
     }
 
     void SplitBvh::BuildNode(SplitRequest& req, PrimRefArray& primrefs)

@@ -30,13 +30,11 @@
     <ClCompile Include="BvhBuilder.cpp" />
     <ClCompile Include="RadeonRays\accelerator\bvh.cpp" />
     <ClCompile Include="RadeonRays\accelerator\split_bvh.cpp" />
-    <ClCompile Include="RadeonRays\log\log.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BvhBuilder.h" />
     <ClInclude Include="RadeonRays\accelerator\bvh.h" />
     <ClInclude Include="RadeonRays\accelerator\split_bvh.h" />
-    <ClInclude Include="RadeonRays\log\log.h" />
     <ClInclude Include="RadeonRays\math\bbox.h" />
     <ClInclude Include="RadeonRays\math\float2.h" />
     <ClInclude Include="RadeonRays\math\float3.h" />

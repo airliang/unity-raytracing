@@ -22,7 +22,7 @@
 #endif
 
 #include "RadeonRays/math/bbox.h"
-#include "RadeonRays/log/log.h"
+//#include "RadeonRays/log/log.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -77,8 +77,8 @@ RRAPI void DestroyBVH(const BVHHandle* as);
 RRAPI int TransferToFlat(Node* nodes, const BVHHandle* as, bool isTLAS, int curTriIndex, int bvhNodeOffset, const MeshInstance* meshInstances);
 RRAPI void FlattenBVHTree(const BVHHandle* handle, LinearBVHNode* linearNodes);
 
-//typedef void(*FuncCallBack)(const char* message, int color, int size);
-//static FuncCallBack logCallbackFunc = nullptr;
+typedef void(*FuncCallBack)(const char* message, int color, int size);
+static FuncCallBack logCallbackFunc = nullptr;
 RRAPI void RegisterLogCallback(FuncCallBack cb);
 
 #ifdef __cplusplus
