@@ -2035,7 +2035,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _RayTracingData:
-    _kernelType: 0
+    _kernelType: 2
     viewMode: 0
     SamplesPerPixel: 1024
     MaxDepth: 5
@@ -2052,6 +2052,7 @@ MonoBehaviour:
     _FocalLength: 1
   wavefrontResource: {fileID: 11400000, guid: 55fe1f73a78651046953267ee8a1160f, type: 2}
   megaResource: {fileID: 11400000, guid: d532d486724e10e4796bf18ef4903fa8, type: 2}
+  dxrPTResource: {fileID: 11400000, guid: a36ce273ff2c1ac4ba1ee4ece30cdae3, type: 2}
   _BlitMaterial: {fileID: 2100000, guid: 084259df6e58bce459049f852cd4eabe, type: 2}
 --- !u!108 &62
 Light:
@@ -3002,7 +3003,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!64 &995298317
 MeshCollider:
   m_ObjectHideFlags: 0
@@ -3045,7 +3046,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 38438fd288be1814c95c3380d2103f10, type: 2}
+  - {fileID: 2100000, guid: a9eaab4088ee4b042b5f4074b2dd3496, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0

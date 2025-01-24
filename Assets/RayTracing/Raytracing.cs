@@ -7,6 +7,7 @@ using UnityEngine.Rendering;
 using UnityEngine.XR;
 using System.IO;
 using UnityEngine.SceneManagement;
+using UnityEngine.Experimental.Rendering;
 
 public class RaytracingStates
 {
@@ -42,6 +43,7 @@ public class Raytracing : MonoBehaviour
     public TracingKernel _RaytracingKernel;
     public WavefrontResource wavefrontResource;
     public MegaKernelResource megaResource;
+    public DXRPTResource dxrPTResource;
     private Camera cameraComponent;
     public Material _BlitMaterial;
     private int cullingMask = 0;
@@ -59,6 +61,10 @@ public class Raytracing : MonoBehaviour
         else if (_RayTracingData._kernelType == RaytracingData.KernelType.Mega)
         {
             _RaytracingKernel = new MegaKernel(megaResource);
+        }
+        else if (_RayTracingData._kernelType == RaytracingData.KernelType.DXR)
+        {
+            _RaytracingKernel = new DXRKernel(dxrPTResource);
         }
 
         cameraComponent = GetComponent<Camera>();
@@ -99,6 +105,9 @@ public class Raytracing : MonoBehaviour
             {
                 _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
             }
+
+            if (_RayTracingData._kernelType == RaytracingData.KernelType.DXR)
+                return;
 
             if (Input.GetMouseButtonUp(0))
             {

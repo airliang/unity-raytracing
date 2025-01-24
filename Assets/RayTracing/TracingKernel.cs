@@ -23,6 +23,7 @@ public class RaytracingData
     {
         Mega,
         Wavefront,
+        DXR,
     }
 
     public enum HDRType

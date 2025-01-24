@@ -36,6 +36,7 @@ Shader "RayTracing/Uber"
             #include "UnityCG.cginc"
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
+            
 
             struct appdata
             {
@@ -115,6 +116,86 @@ Shader "RayTracing/Uber"
                 return half4(color, 1);
             }
             ENDCG
+        }
+    }
+
+    SubShader
+    {
+        Pass
+        {
+            Name"RayTracing"
+            Tags
+            {
+                "LightMode" = "RayTracing"
+            }
+
+            HLSLPROGRAM
+
+            #pragma raytracing test
+
+            #include "DXR/TraceRay.hlsl"
+            #include "DXR/sampleAreaLights.hlsl"
+            #include "DXR/materials.hlsl"
+            Texture2D _MainTex;
+            float4 _MainTex_ST;
+            Texture2D _NormalTex;
+            float4 _NormalTex_ST;
+            
+            half4 _BaseColor;
+            half4 _BaseColorLinear;
+            float _UseLinearBaseColor;
+            Texture2D _GlossySpecularTex;
+            half4 _GlossySpecularColor;
+            int _MaterialType;
+            float _roughnessU;
+            float _roughnessV;
+            float3 _eta;
+            float3 _k; //metal absorption
+            float3 _t; //transmission
+            half _Cutoff;
+            int _FresnelType;
+            int _MetalType;
+
+            [shader("closesthit")]
+            void ClosestHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            {
+                uint primIndex = PrimitiveIndex();
+                HitSurface hitSurface = GetHitSurface(primIndex, -rayIntersection.direction, attributeData);
+                
+                Material material = (Material) 0;
+                material.materialType = _MaterialType;
+                material.kd = _BaseColor.rgb;
+                material.ks = _GlossySpecularColor.rgb;
+                rayIntersection.primitiveID = primIndex;
+    
+                if (rayIntersection.bounce < _MaxDepth)
+                {
+                    bool breakpath = false;
+                    PathVertex pathVertex = (PathVertex) 0;
+                    float3 ld = EstimateDirectLighting(hitSurface, material, rayIntersection.rng, pathVertex, breakpath);
+                    rayIntersection.color.rgb += rayIntersection.beta * ld;
+                    //sample current material bsdf
+                    //float4 texColor = _MainTex.SampleLevel(s_linear_repeat_sampler, hitSurface.uv, hitSurface.mip);
+                    //rayIntersection.color = _BaseColor * texColor;
+        
+                    if (!breakpath)
+                    {
+                        float3 throughput = pathVertex.bsdfVal / pathVertex.bsdfPdf;
+                        rayIntersection.beta *= throughput;
+                        //TraceRay(_AccelerationStructure, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, shadowRay, rayIntersection);
+                    }
+                }
+                
+            }
+
+            [shader("anyhit")]
+            void AnyHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            {
+                rayIntersection = (RayIntersection) 0;
+                rayIntersection.hitResult = HIT_MESH;
+            }
+
+            ENDHLSL
         }
     }
 

@@ -37,6 +37,7 @@ Shader "RayTracing/AreaLight"
             float4 _MainTex_ST;
             half4 _Emission;
             half4 _Intensity;
+            float4 _BaseColor;
 
             v2f vert (appdata v)
             {
@@ -54,6 +55,50 @@ Shader "RayTracing/AreaLight"
                 return col * _Emission * _Intensity;
             }
             ENDCG
+        }
+    }
+
+    SubShader
+    {
+        Pass
+        {
+            Name "RayTracing"
+
+            Tags
+            {
+                "LightMode" = "RayTracing"
+            }
+
+            HLSLPROGRAM
+
+            #pragma raytracing test
+
+            #include "DXR/DXRCommon.hlsl"
+
+            Texture2D _MainTex;
+            float4 _MainTex_ST;
+            CBUFFER_START(UnityPerMaterial)
+            half4 _Emission;
+            half4 _Intensity;
+            CBUFFER_END
+
+            [shader("closesthit")]
+            void ClosestHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            {
+                rayIntersection.color = _Emission * _Intensity;
+                rayIntersection.hitResult = HIT_LIGHT;
+                rayIntersection.instanceID = InstanceID();
+                rayIntersection.primitiveID = PrimitiveIndex();
+            }
+
+            [shader("anyhit")]
+            void AnyHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            {
+                rayIntersection = (RayIntersection) 0;
+                rayIntersection.hitResult = HIT_LIGHT;
+            }
+
+            ENDHLSL
         }
     }
 }

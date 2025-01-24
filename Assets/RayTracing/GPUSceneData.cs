@@ -27,6 +27,7 @@ public class AreaLightResource
     //public List<Vector2> triangleDistributions = new List<Vector2>();
     //在GPUDistributionDiscript中的地址
     public int discriptAddress = -1;
+    public int meshIndex = -1;
     public Distribution1D triangleDistributions = null;
     public List<float> triangleAreas = new List<float>();
     public List<int> gpuLightIndices = new List<int>();

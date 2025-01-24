@@ -1,0 +1,48 @@
+#include "TraceRay.hlsl"
+
+
+RWTexture2D<float4> _Output;
+
+#pragma max_recursion_depth 1
+
+[shader("raygeneration")]
+void MyRaygenShader()
+{
+    uint2 dispatchIdx = DispatchRaysIndex().xy;
+    
+    // float3 origin;
+    // float3 direction;
+    // GenerateCameraRay(origin, direction);
+
+    // RayDesc rayDescriptor;
+    // rayDescriptor.Origin = origin;
+    // rayDescriptor.Direction = direction;
+    // rayDescriptor.TMin = 1e-5f;
+    // rayDescriptor.TMax = _CameraFarDistance;
+    uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
+
+    RNG rng = GetRNG(threadId);
+    RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
+
+    RayIntersection rayIntersection;
+    //rayIntersection.remainingDepth = 1;
+    rayIntersection.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+    rayIntersection.rng = rng;
+    rayIntersection.bounce = 0;
+    rayIntersection.direction = rayDescriptor.Direction;
+    rayIntersection.beta = 1;
+
+    TraceRay(_AccelerationStructure, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, rayDescriptor, rayIntersection);
+
+    WriteRNG(threadId, rng);
+    _Output[dispatchIdx] = rayIntersection.color;
+}
+
+[shader("miss")]
+void MissShader(inout RayIntersection rayIntersection : SV_RayPayload)
+{
+    rayIntersection.hitResult = HIT_MISS;
+    rayIntersection.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+}
+
+
