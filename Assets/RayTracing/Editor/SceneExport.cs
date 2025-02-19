@@ -651,26 +651,6 @@ public static class SceneExport
     [MenuItem("Tools/Export Scene for RayTracing", false, 8)]
     private static void ExportRayTracingScene()
     {
-        /*
-        Ray ray = new Ray(new Vector3(-2.75519872f, 2.73157096f, 13.1390285f), new Vector3(0.383678913f, 0.121772133f, -0.915402591f));
-        ray = new Ray(new Vector3(-2.75519872f, 2.73157096f, 13.1390285f), new Vector3(0, 0, -1.0f));
-        RaycastHit info;
-        bool hit = Physics.Raycast(ray, out info);
-        if (hit)
-        {
-            Debug.LogWarning("ray hit succeed, info name = " + info.collider.gameObject.name);
-        }
-        else
-        {
-            Debug.LogWarning("ray hit nothing!");
-        }
-
-        SceneWriter sw = new SceneWriter();
-        sw.WriteScene("/scene.rt");
-
-        sw.WriteTriangleMeshes("/scene.m");
-        sw.Clear();
-        */
         JsonScene.Scene scene = new JsonScene.Scene();
         MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
         Raytracing raytracing = GameObject.FindObjectOfType<Raytracing>();

@@ -47,10 +47,6 @@ public class WavefrontKernel : TracingKernel
     ComputeBuffer samplerBuffer;
     ComputeBuffer pathRadianceBuffer;
 
-    //ComputeBuffer shadowRayBuffer;
-    RenderTexture imageSpectrumsBuffer;
-
-
     ComputeBuffer rayQueueSizeBuffer;
     ComputeBuffer rayQueueBuffer;
     ComputeBuffer nextRayQueueBuffer;
@@ -63,15 +59,6 @@ public class WavefrontKernel : TracingKernel
     ComputeBuffer hitLightItemBuffer;
     ComputeBuffer materialShadingItemBuffer;
     ComputeBuffer shadowRayItemBuffer;
-
-    RenderTexture outputTexture;
-    RenderTexture rayConeGBuffer;
-
-    //screen is [-1,1]
-    //Matrix4x4 RasterToScreen;
-    //Matrix4x4 RasterToCamera;
-    //Matrix4x4 WorldToRaster;
-
 
     int MAX_PATH = 5;
     int MIN_PATH = 3;
@@ -132,12 +119,6 @@ public class WavefrontKernel : TracingKernel
             {
                 _rayTracingData = data;
                 MAX_PATH = data.MaxDepth;
-
-                if (outputTexture == null)
-                {
-                    outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
-                    outputTexture.enableRandomWrite = true;
-                }
 
                 gpuSceneData = new GPUSceneData(data._UniformSampleLight, data._EnviromentMapEnable, true);
                 meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
@@ -200,11 +181,6 @@ public class WavefrontKernel : TracingKernel
         }
     }
 
-    public RenderTexture GetOutputTexture()
-    {
-        return outputTexture;
-    }
-
     public void Release()
     {
         void ReleaseComputeBuffer(ComputeBuffer buffer)
@@ -240,22 +216,6 @@ public class WavefrontKernel : TracingKernel
 
         if (gpuFilterData != null)
             gpuFilterData.Release();
-
-        if (outputTexture != null)
-        {
-            outputTexture.Release();
-            Object.Destroy(outputTexture);
-            outputTexture = null;
-        }
-
-        if (rayConeGBuffer != null)
-        {
-            rayConeGBuffer.Release();
-            Object.Destroy(rayConeGBuffer);
-            rayConeGBuffer = null;
-        }
-
-        ReleaseRenderTexture(imageSpectrumsBuffer);
 
         ReleaseComputeBuffer(samplerBuffer);
         ReleaseComputeBuffer(workItemBuffer);
@@ -293,7 +253,7 @@ public class WavefrontKernel : TracingKernel
             return true;
         }
 
-        RenderToGBuffer(camera);
+        //RenderToGBuffer(camera);
 
         rayQueueSizeBuffer.SetData(RayQueueSizeArray);
 
@@ -397,46 +357,6 @@ public class WavefrontKernel : TracingKernel
         RayQueueClear.Dispatch(kRayQueueClear, 1, 1, 1);
     }
 
-    private void RenderToGBuffer(Camera camera)
-    {
-        if (rayConeGBuffer == null)
-        {
-            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGHalf);
-            rayConeGBuffer.name = "RayConeGBuffer";
-            rayConeGBuffer.enableRandomWrite = true;
-        }
-
-
-        if (gBufferMaterial == null)
-        {
-            Shader renderToGBuffer = Shader.Find("RayTracing/RayCone");
-            gBufferMaterial = new Material(renderToGBuffer);
-        }
-
-        if (renderGBufferCmd == null)
-        {
-            renderGBufferCmd = new CommandBuffer();
-            renderGBufferCmd.name = "RayConeGBuffer Commands";
-        }
-        CommandBuffer cmd = renderGBufferCmd;//new CommandBuffer();
-        cmd.Clear();
-        cmd.BeginSample("Render GBuffer");
-        cmd.SetRenderTarget(rayConeGBuffer);
-        cmd.ClearRenderTarget(true, true, Color.black);
-        cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
-        cmd.SetViewport(new Rect(0, 0, (float)Screen.width, (float)Screen.height));
-
-        Plane[] frustums = GeometryUtility.CalculateFrustumPlanes(camera);
-        for (int i = 0; i < meshRenderers.Length; ++i)
-        {
-            if (GeometryUtility.TestPlanesAABB(frustums, meshRenderers[i].bounds))
-                cmd.DrawRenderer(meshRenderers[i], gBufferMaterial);
-        }
-        cmd.EndSample("Render GBuffer");
-        Graphics.ExecuteCommandBuffer(cmd);
-
-    }
-
     void SetupSamplers()
     {
         if (samplerBuffer == null)
@@ -455,21 +375,10 @@ public class WavefrontKernel : TracingKernel
         InitRandom.SetBuffer(kInitRandom, "RNGs", samplerBuffer);
         InitRandom.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
         InitRandom.Dispatch(kInitRandom, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
-        //for test
-        //samplerBuffer.GetData(gpuRandomSamplers);
-
-        //kTestSampler = initRandom.FindKernel("CSTestSampler");
-        //initRandom.SetBuffer(kTestSampler, "RNGs", samplerBuffer);
-        //initRandom.Dispatch(kTestSampler, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
-        //samplerBuffer.GetData(gpuRandomSamplers);
     }
 
     void SetupGPUBuffers()
     {
-        //if (rayBuffer == null)
-        //{
-        //    rayBuffer = new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPURay)), ComputeBufferType.Structured);
-        //}
 
         if (workItemBuffer == null)
         {
@@ -634,18 +543,11 @@ public class WavefrontKernel : TracingKernel
 
     void SetupImageReconstruction()
     {
-        if (imageSpectrumsBuffer == null)
-        {
-            imageSpectrumsBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, 0);//new ComputeBuffer(Screen.width * Screen.height, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector3)), ComputeBufferType.Structured);
-            imageSpectrumsBuffer.enableRandomWrite = true;
-            imageSpectrumsBuffer.filterMode = FilterMode.Point;
-        }
-
         kImageReconstruction = ImageReconstruction.FindKernel("CSMain");
         ImageReconstruction.SetBuffer(kImageReconstruction, "pathRadiances", pathRadianceBuffer);
         //ImageReconstruction.SetBuffer(kImageReconstruction, "spectrums", imageSpectrumsBuffer);
-        SetComputeTexture(ImageReconstruction, kImageReconstruction, "spectrums", imageSpectrumsBuffer);
-        ImageReconstruction.SetTexture(kImageReconstruction, "outputTexture", outputTexture);
+        SetComputeTexture(ImageReconstruction, kImageReconstruction, "spectrums", _rayTracingData.SpectrumBuffer);
+        ImageReconstruction.SetTexture(kImageReconstruction, "outputTexture", _rayTracingData.OutputTexture);
         ImageReconstruction.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
@@ -687,16 +589,9 @@ public class WavefrontKernel : TracingKernel
         DebugView.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
         DebugView.SetFloat("cameraFar", camera.farClipPlane);
         SetTextures(DebugView, kDebugView);
-        DebugView.SetTexture(kDebugView, "outputTexture", outputTexture);
+        DebugView.SetTexture(kDebugView, "outputTexture", _rayTracingData.OutputTexture);
 
-        if (rayConeGBuffer == null)
-        {
-            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
-            rayConeGBuffer.name = "RayConeGBuffer";
-            rayConeGBuffer.enableRandomWrite = true;
-        }
-
-        DebugView.SetTexture(kDebugView, "RayConeGBuffer", rayConeGBuffer);
+        DebugView.SetTexture(kDebugView, "RayConeGBuffer", _rayTracingData.RayConeGBuffer);
     }
 
     void SetupRayTraversal()
@@ -724,14 +619,7 @@ public class WavefrontKernel : TracingKernel
         //RayTravel.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         SetTextures(RayTravel, kRayTraversal);
 
-        if (rayConeGBuffer == null)
-        {
-            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.RGHalf);
-            rayConeGBuffer.name = "RayConeGBuffer";
-            rayConeGBuffer.enableRandomWrite = true;
-        }
-        RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", rayConeGBuffer);
-        //RayTravel.SetTexture(kRayTraversal, "outputTexture", outputTexture);
+        RayTravel.SetTexture(kRayTraversal, "RayConeGBuffer", _rayTracingData.RayConeGBuffer);
     }
 
     void SetupRayQueueClear()

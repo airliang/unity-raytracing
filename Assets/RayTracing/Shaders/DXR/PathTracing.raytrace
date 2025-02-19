@@ -1,48 +1,39 @@
 #include "TraceRay.hlsl"
 
-
+RWTexture2D<float4> _Spectrums;
 RWTexture2D<float4> _Output;
-
-#pragma max_recursion_depth 1
+#pragma enable_d3d11_debug_symbols
+//#pragma max_recursion_depth 2
 
 [shader("raygeneration")]
 void MyRaygenShader()
 {
     uint2 dispatchIdx = DispatchRaysIndex().xy;
     
-    // float3 origin;
-    // float3 direction;
-    // GenerateCameraRay(origin, direction);
-
-    // RayDesc rayDescriptor;
-    // rayDescriptor.Origin = origin;
-    // rayDescriptor.Direction = direction;
-    // rayDescriptor.TMin = 1e-5f;
-    // rayDescriptor.TMax = _CameraFarDistance;
     uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
 
     RNG rng = GetRNG(threadId);
     RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
 
-    RayIntersection rayIntersection;
-    //rayIntersection.remainingDepth = 1;
-    rayIntersection.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
-    rayIntersection.rng = rng;
-    rayIntersection.bounce = 0;
-    rayIntersection.direction = rayDescriptor.Direction;
-    rayIntersection.beta = 1;
-
-    TraceRay(_AccelerationStructure, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, rayDescriptor, rayIntersection);
+    float3 li = PathLi(rayDescriptor, dispatchIdx, rng);
+    float3 radiance = li; 
+    //third step: output the final radiance to texture
+    float3 spectrum = _Spectrums[dispatchIdx];
+    float t = 1.0f / _FrameIndex;
+    float3 curSpectrum = lerp(spectrum, radiance, t);
+    //spectrum.rgb += radiance;
+    _Spectrums[dispatchIdx] = float4(curSpectrum, 1);
+    //color = curSpectrum;
 
     WriteRNG(threadId, rng);
-    _Output[dispatchIdx] = rayIntersection.color;
+    _Output[dispatchIdx] = float4(curSpectrum, 1);
 }
 
 [shader("miss")]
-void MissShader(inout RayIntersection rayIntersection : SV_RayPayload)
+void MissShader(inout PathPayload payLoad : SV_RayPayload)
 {
-    rayIntersection.hitResult = HIT_MISS;
-    rayIntersection.color = float4(1.0f, 0.0f, 0.0f, 1.0f);
+    payLoad.hitResult = HIT_MISS;
+    //rayIntersection.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
 }
 
 

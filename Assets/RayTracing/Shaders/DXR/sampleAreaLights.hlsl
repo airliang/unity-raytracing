@@ -31,22 +31,22 @@ StructuredBuffer<TriangleLight> _TriangleLights;
 StructuredBuffer<int3> _LightTriangles;
 StructuredBuffer<Vertex> _LightVertices;
 
-float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, AreaLight light, out float3 wi, out float3 position, out float pdf)
+float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, AreaLight light, out float3 wi, out float3 position, out float attenuation)
 {
     float3 Li = 0;
     float3 lightPointNormal;
     float triPdf = 0;
     position = SamplePointOnTriangle(p0, p1, p2, u, lightPointNormal, triPdf);
-    pdf = triPdf;
+    //pdf = triPdf;
     wi = position - litPoint;
     float wiLength = length(wi);
     wi = normalize(wi);
     float cos = dot(lightPointNormal, -wi);
     float absCos = abs(cos);
-    pdf *= wiLength * wiLength / absCos;
-    if (isinf(pdf) || wiLength == 0)
+    attenuation = wiLength * wiLength / absCos;
+    if (isinf(attenuation) || wiLength == 0)
     {
-        pdf = 0;
+        attenuation = 0;
         return 0;
     }
 
@@ -69,7 +69,7 @@ float3 SampleLightRadiance(AreaLight light, float3 intersectPoint, inout RNG rng
 
     int triangleLightIndex = min((int)(u * light.triangleLightsNum), light.triangleLightsNum - 1);
     TriangleLight triLight = _TriangleLights[triangleLightIndex + light.triangleLightOffset];
-    uint3 triangleIndices = triLight.triangleIndex;
+    uint3 triangleIndices = _LightTriangles[triLight.triangleIndex];
 
     float3 p0 = _LightVertices[triangleIndices.x].position;
     float3 p1 = _LightVertices[triangleIndices.y].position;
@@ -80,11 +80,12 @@ float3 SampleLightRadiance(AreaLight light, float3 intersectPoint, inout RNG rng
     p1 = mul(light.localToWorld, float4(p1, 1)).xyz;
     p2 = mul(light.localToWorld, float4(p2, 1)).xyz;
 
-    float triangleArea = triLight.area;
-    lightPdf = triangleArea / light.area;
-
-    float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), intersectPoint, light, wi, lightPoint, triPdf);
-    lightPdf *= triPdf;
+    //float triangleArea = triLight.area;
+    //lightPdf = triangleArea / light.area;
+    float attenuation = 1.0;
+    float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), intersectPoint, light, wi, lightPoint, attenuation);
+    //lightPdf *= triPdf;
+    lightPdf = attenuation / light.area;
     return Li;
 }
 

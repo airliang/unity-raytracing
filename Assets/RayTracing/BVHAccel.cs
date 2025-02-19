@@ -271,8 +271,8 @@ public class BVHAccel
 
 		return myOffset;
 	}
-
-	public void DrawDebug(List<MeshInstance> meshInstances, bool instanceBVH = true)
+#if UNITY_EDITOR
+    public void DrawDebug(List<MeshInstance> meshInstances, bool instanceBVH = true)
     {
 		if (instanceBVH)
         {
@@ -339,14 +339,14 @@ public class BVHAccel
 			}
 		}
     }
+#endif
 
-
-	//create the gpu bvh nodes
-	//param meshNode代表是否一个mesh下的bvh划分
-	//gpuVertices 
-	//bottomLevel
-	//bottomLevelOffset   bottomlevel的bvh在m_nodes中的索引
-	void CreateCompact(LinearBVHNode[] bvhNodes, Primitive[] primitives, List<GPUVertex> gpuVertices, bool bottomLevel = true, List<int> botomLevelOffset = null)
+    //create the gpu bvh nodes
+    //param meshNode代表是否一个mesh下的bvh划分
+    //gpuVertices 
+    //bottomLevel
+    //bottomLevelOffset   bottomlevel的bvh在m_nodes中的索引
+    void CreateCompact(LinearBVHNode[] bvhNodes, Primitive[] primitives, List<GPUVertex> gpuVertices, bool bottomLevel = true, List<int> botomLevelOffset = null)
 	{
 		//GPUBVHNode[] nodes = new GPUBVHNode[nodesNum];
 		List<GPUBVHNode> nodes = new List<GPUBVHNode>(m_nodes);
@@ -1398,11 +1398,13 @@ public class BVHAccel
 		//return false;
 		if (hitIndex != -1)
 		{
-			RenderDebug.DrawTriangle(sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex]].position,
+#if UNITY_EDITOR
+            RenderDebug.DrawTriangle(sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex]].position,
 				sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex + 1]].position,
 				sceneVertices[WoopTriangleData.m_woopTriangleIndices[hitIndex + 2]].position, Color.green);
+#endif
 
-		}
+        }
 		return hitIndex != -1;
 	}
 
@@ -1601,11 +1603,13 @@ public class BVHAccel
 
 			if (hitIndex != -1)
 			{
-				int triAddrDebug = hitIndex;
+#if UNITY_EDITOR
+                int triAddrDebug = hitIndex;
 				RenderDebug.DrawTriangle(meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug]].position),
 					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 1]].position),
 					meshInstanceTmp.localToWorld.MultiplyPoint(sceneVertices[WoopTriangleData.m_woopTriangleIndices[triAddrDebug + 2]].position), Color.green);
-			}
+#endif
+            }
 		}
 		meshInstanceIndex = hitMeshIndex;
 		return hitIndex != -1;

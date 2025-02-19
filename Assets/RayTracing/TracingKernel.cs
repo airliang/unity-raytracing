@@ -52,6 +52,75 @@ public class RaytracingData
     //depth of field params
     public float _LensRadius = 0;
     public float _FocalLength = 1;
+
+    private RenderTexture outputTexture;
+    private RenderTexture rayConeGBuffer;
+    private RenderTexture spectrumsBuffer;
+
+    public RenderTexture OutputTexture
+    {
+        get { return outputTexture; }
+    }
+    public RenderTexture RayConeGBuffer
+    { 
+        get { return rayConeGBuffer; } 
+    }
+
+    public RenderTexture SpectrumBuffer
+    {
+        get { return spectrumsBuffer; }
+    }
+
+    public void Initialize()
+    {
+        if (outputTexture == null)
+        {
+            outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
+            outputTexture.name = "FinalOutput";
+            outputTexture.enableRandomWrite = true;
+            outputTexture.Create();
+        }
+
+        if (rayConeGBuffer == null)
+        {
+            rayConeGBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf);
+            rayConeGBuffer.name = "RayConeGBuffer";
+            rayConeGBuffer.enableRandomWrite = true;
+            rayConeGBuffer.Create();
+        }
+
+        if (spectrumsBuffer == null)
+        {
+            spectrumsBuffer = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBFloat, 0);
+            spectrumsBuffer.name = "Spectrum";
+            spectrumsBuffer.enableRandomWrite = true;
+            spectrumsBuffer.Create();
+        }
+    }
+
+    public void Release()
+    {
+        if (outputTexture != null)
+        {
+            outputTexture.Release();
+            Object.Destroy(outputTexture);
+            outputTexture = null;
+        }
+
+        if (rayConeGBuffer != null)
+        {
+            rayConeGBuffer.Release();
+            Object.Destroy(rayConeGBuffer);
+            rayConeGBuffer = null;
+        }
+
+        if (spectrumsBuffer != null)
+        {
+            spectrumsBuffer.Release();
+            Object.Destroy(spectrumsBuffer);
+            spectrumsBuffer = null;
+        }
+    }
 }
 
 
@@ -62,8 +131,6 @@ public interface TracingKernel
     bool Update(Camera camera);
 
     void Release();
-
-    RenderTexture GetOutputTexture();
 
     GPUSceneData GetGPUSceneData();
 

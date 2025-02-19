@@ -46,8 +46,10 @@ public class Raytracing : MonoBehaviour
     public DXRPTResource dxrPTResource;
     private Camera cameraComponent;
     public Material _BlitMaterial;
+    public Shader _RayConeGBuffer;
     private int cullingMask = 0;
     private bool hasSaveImage = false;
+    private RenderTexture defaultCameraTarget;
 
     void Start()
     {
@@ -68,7 +70,7 @@ public class Raytracing : MonoBehaviour
         }
 
         cameraComponent = GetComponent<Camera>();
-        
+        _RayTracingData.Initialize();
 
         if (_BlitMaterial == null)
         {
@@ -80,13 +82,25 @@ public class Raytracing : MonoBehaviour
         }
 
         cullingMask = cameraComponent.cullingMask;
-        cameraComponent.cullingMask = 0;
+        //cameraComponent.cullingMask = 0;
         hasSaveImage = false;
 
         StartCoroutine(_RaytracingKernel.Setup(cameraComponent, _RayTracingData));
     }
 
     void Update()
+    {
+        
+    }
+
+    void OnDestroy()
+    {
+        _RaytracingKernel.Release();
+        _RayTracingData.Release();
+        cameraComponent.cullingMask = cullingMask;
+    }
+
+    private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
         if (RaytracingStates.states == RaytracingStates.States.Rendering)
         {
@@ -105,43 +119,13 @@ public class Raytracing : MonoBehaviour
             {
                 _BlitMaterial.SetInt("_HDRType", (int)_RayTracingData.HDR);
             }
-
-            if (_RayTracingData._kernelType == RaytracingData.KernelType.DXR)
-                return;
-
-            if (Input.GetMouseButtonUp(0))
-            {
-                Vector3 radiance = RayTracingTest.OnePathTracing((int)Input.mousePosition.x, (int)Input.mousePosition.y, (int)Screen.width, 1,
-                    _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
-                Vector3 K = new Vector3(3.9747f, 2.38f, 1.5998f);
-                Vector3 etaT = new Vector3(0.1428f, 0.3741f, 1.4394f);
-                float cosTheta = 0.3f;
-                Vector3 fr = RayTracingTest.FrConductor(cosTheta, Vector3.one, etaT, K);
-                Debug.Log("cosTheta = " + cosTheta + " fresnel = " + fr);
-            }
-            else if (Input.GetMouseButtonUp(1))
-            {
-                Vector3 radiance = RayTracingTest.OnePathTracing(250, 250, (int)Screen.width, 1,
-                   _RaytracingKernel.GetGPUSceneData(), _RaytracingKernel.GetGPUFilterData().filter, cameraComponent);
-            }
         }
-    }
-
-    void OnDestroy()
-    {
-        _RaytracingKernel.Release();
-        MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        cameraComponent.cullingMask = cullingMask;
-    }
-
-    private void OnRenderImage(RenderTexture source, RenderTexture destination)
-    {
         //Graphics.Blit(outputTexture, destination);
         //for gbuffer test
         if (_BlitMaterial != null)
-            Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination, _BlitMaterial);
+            Graphics.Blit(_RayTracingData.OutputTexture, destination, _BlitMaterial);
         else
-            Graphics.Blit(_RaytracingKernel.GetOutputTexture(), destination);
+            Graphics.Blit(_RayTracingData.OutputTexture, destination);
     }
 
     private void OnGUI()
@@ -183,11 +167,29 @@ public class Raytracing : MonoBehaviour
         }
     }
 
-    
+    void OnPreRender()
+    {
+        //cameraComponent.cullingMask = cullingMask;
+        //_RaytracingKernel.RenderToGBuffer(cameraComponent);
+        //cameraComponent.cullingMask = 0;
+        defaultCameraTarget = cameraComponent.targetTexture;
+        RenderTexture rayConeGBuffer = _RayTracingData.RayConeGBuffer;
+        Graphics.SetRenderTarget(rayConeGBuffer);
+        if (_RayConeGBuffer == null )
+        {
+            _RayConeGBuffer = Shader.Find("RayTracing/RayCone");
+        }
+        cameraComponent.SetReplacementShader(_RayConeGBuffer, "RenderType");
+    }
+
+    private void OnRenderObject()
+    {
+        Graphics.SetRenderTarget(null);
+    }
 
     void SaveOutputTexture()
     {
-        RenderTexture outputTexture = _RaytracingKernel.GetOutputTexture();
+        RenderTexture outputTexture = _RayTracingData.OutputTexture;
         Texture2D texture2D = new Texture2D(outputTexture.width, outputTexture.height, TextureFormat.RGBAHalf, false);
         texture2D.filterMode = FilterMode.Bilinear;
         //RenderTexture.active = outputTexture;

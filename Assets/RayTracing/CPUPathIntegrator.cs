@@ -1128,9 +1128,11 @@ public class CPUPathIntegrator
                     {
                         Debug.LogError("Triangle Index overflow!");
                     }
+#if UNITY_EDITOR
                     RenderDebug.DrawTriangle(meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri0].position),
                          meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri1].position),
                          meshInstance.localToWorld.MultiplyPoint(gpuSceneData.gpuVertices[tri2].position), Color.green);
+#endif
                 }
                 
             }

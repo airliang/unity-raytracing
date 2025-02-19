@@ -203,4 +203,9 @@ bool IsBlack(float3 radiance)
 	return (radiance.x + radiance.y + radiance.z) < 0.001;
 }
 
+bool IsZero(float3 radiance)
+{
+    return radiance.x == 0 && radiance.y == 0 && radiance.z == 0;
+}
+
 #endif

@@ -13,6 +13,7 @@ Shader "RayTracing/AreaLight"
 
         Pass
         {
+            Tags { "RenderType"="Opaque" }
             CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
@@ -72,9 +73,9 @@ Shader "RayTracing/AreaLight"
             HLSLPROGRAM
 
             #pragma raytracing test
-
-            #include "DXR/DXRCommon.hlsl"
-
+            #pragma enable_d3d11_debug_symbols
+            #include "UnityCG.cginc"
+            #include "DXR/TraceRay.hlsl"
             Texture2D _MainTex;
             float4 _MainTex_ST;
             CBUFFER_START(UnityPerMaterial)
@@ -83,19 +84,20 @@ Shader "RayTracing/AreaLight"
             CBUFFER_END
 
             [shader("closesthit")]
-            void ClosestHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            void ClosestHitShader(inout PathPayload payLoad : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
             {
-                rayIntersection.color = _Emission * _Intensity;
-                rayIntersection.hitResult = HIT_LIGHT;
-                rayIntersection.instanceID = InstanceID();
-                rayIntersection.primitiveID = PrimitiveIndex();
+                payLoad.hitResult = HIT_LIGHT;
+                payLoad.instanceID = InstanceID();
+                payLoad.primitiveID = PrimitiveIndex();
+    payLoad.hitSurface = GetHitSurface(payLoad.primitiveID, -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
+                payLoad.hitSurface.lightIndex = InstanceID();
             }
 
             [shader("anyhit")]
-            void AnyHitShader(inout RayIntersection rayIntersection : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
+            void AnyHitShader(inout PathPayload payLoad : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
             {
-                rayIntersection = (RayIntersection) 0;
-                rayIntersection.hitResult = HIT_LIGHT;
+                payLoad.hitSurface.lightIndex = InstanceID();
+                payLoad.hitResult = HIT_LIGHT;
             }
 
             ENDHLSL

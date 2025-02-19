@@ -175,22 +175,23 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 		return UniformSampleEnviromentLight(u, pdf, wi);
 }
 
-float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, Light light, out float3 wi, out float3 position, out float pdf)
+float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, Light light, out float3 wi, out float3 position, out float attenuation)
 {
 	float3 Li = 0;
 	float3 lightPointNormal;
 	float triPdf = 0;
 	position = SamplePointOnTriangle(p0, p1, p2, u, lightPointNormal, triPdf);
-	pdf = triPdf;
+	//pdf = triPdf;
 	wi = position - litPoint;
 	float wiLength = length(wi);
 	wi = normalize(wi);
 	float cos = dot(lightPointNormal, -wi);
 	float absCos = abs(cos);
-	pdf *= wiLength * wiLength / absCos;
-	if (isinf(pdf) || wiLength == 0)
+	//pdf *= wiLength * wiLength / absCos;
+    attenuation = wiLength * wiLength / absCos;
+	if (isinf(attenuation) || wiLength == 0)
 	{
-		pdf = 0;
+        attenuation = 0;
 		return 0;
 	}
 	
@@ -231,11 +232,12 @@ float3 SampleLightRadiance(Light light, Interaction isect, inout RNG rng,
 		p1 = mul(meshInstance.localToWorld, float4(p1, 1)).xyz;
 		p2 = mul(meshInstance.localToWorld, float4(p2, 1)).xyz;
 
-		float triangleArea = 0.5 * length(cross(p1 - p0, p2 - p0));
-		lightPdf = triangleArea / light.area;
-
-		float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect.p.xyz, light, wi, lightPoint, triPdf);
-		lightPdf *= triPdf;
+		//float triangleArea = 0.5 * length(cross(p1 - p0, p2 - p0));
+		//lightPdf = triangleArea / light.area;
+        float attenuation = 1.0;
+		float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), isect.p.xyz, light, wi, lightPoint, attenuation);
+		//lightPdf *= triPdf;
+        lightPdf = attenuation / light.area;
 		return Li;
 	}
 	else if (light.type == EnvLightType)

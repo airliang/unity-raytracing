@@ -2054,6 +2054,7 @@ MonoBehaviour:
   megaResource: {fileID: 11400000, guid: d532d486724e10e4796bf18ef4903fa8, type: 2}
   dxrPTResource: {fileID: 11400000, guid: a36ce273ff2c1ac4ba1ee4ece30cdae3, type: 2}
   _BlitMaterial: {fileID: 2100000, guid: 084259df6e58bce459049f852cd4eabe, type: 2}
+  _RayConeGBuffer: {fileID: 4800000, guid: 66ee7316e4fe4764081d81c3d99c898f, type: 3}
 --- !u!108 &62
 Light:
   m_ObjectHideFlags: 0

@@ -4,6 +4,7 @@ using UnityEngine;
 using System;
 using UnityEditor;
 
+#if UNITY_EDITOR
 public static class JsonScene
 {
     [Serializable]
@@ -342,3 +343,4 @@ public static class JsonScene
         }
     }
 }
+#endif

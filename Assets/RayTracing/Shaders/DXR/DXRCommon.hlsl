@@ -10,11 +10,13 @@ CBUFFER_START(CameraBuffer)
 float4x4 _InvCameraViewProj;
 float4x4 _RasterToCamera;
 float4x4 _CameraToWorld;
-float3   _WorldSpaceCameraPos;
+float3   _CameraPosWS;
 float    _CameraFarDistance;
 float    _LensRadius;
 float    _FocalLength;
+float _CameraConeSpreadAngle;
 int _FrameIndex;
+int _MinDepth;
 int _MaxDepth;
 int _LightsNum;
 CBUFFER_END
@@ -33,16 +35,20 @@ struct RNG
 #define HIT_MESH 1
 #define HIT_LIGHT 2
 
-struct RayIntersection
+struct Material
 {
-    float4 color;
-    float3 direction;
-    float3 beta;
-    RNG rng;
-    int bounce;
-    int hitResult;
-    int instanceID;
-    int primitiveID;
+    int materialType;
+    float3 kd;
+    float3 ks;
+    float3 transmission;
+    float metallic;
+    float specular;
+    float roughness;
+    float anisotropy;
+    float3 eta;
+    float3 k;             //metal material absorption
+    float fresnelType;
+    float4 albedo_ST;
 };
 
 struct HitSurface
@@ -58,7 +64,8 @@ struct HitSurface
     float  screenSpaceArea;
     float  uvArea;
     float  mip;
-    float2  padding;
+    int lightIndex;
+    float  hitT;
 
     float3 WorldToLocal(float3 v)
     {
@@ -71,25 +78,36 @@ struct HitSurface
     }
 };
 
+struct PathPayload
+{
+    //float4 color;
+    float3 direction;
+    //float3 beta;
+    
+    //int bounce;
+    int hitResult;
+    int instanceID;
+    int primitiveID;
+    int isHitLightCheck;
+
+    HitSurface hitSurface;
+    Material  material;
+};
+
 typedef BuiltInTriangleIntersectionAttributes AttributeData;
 
 RaytracingAccelerationStructure _AccelerationStructure;
 
 RWStructuredBuffer<RNG>    _RNGs;
+RWTexture2D<half4>  _RayConeGBuffer;
 
-//同心圆盘采样
 float2 ConcentricSampleDisk(float2 u)
 {
-    //mapping u to [-1,1]
     float2 u1 = float2(u.x * 2.0f - 1, u.y * 2.0f - 1);
 
     if (u1.x == 0 && u1.y == 0)
         return float2(0, 0);
 
-    //r = x
-    //θ = y/x * π/4
-    //最后返回x,y
-    //x = rcosθ, y = rsinθ
     float theta, r;
     if (abs(u1.x) > abs(u1.y))
     {
@@ -98,7 +116,6 @@ float2 ConcentricSampleDisk(float2 u)
     }
     else
     {
-        //这里要反过来看，就是把视野选择90度
         r = u1.y;
         theta = PI_OVER_2 - u1.x / u1.y * PI_OVER_4;
     }

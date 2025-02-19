@@ -119,8 +119,6 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
         }
 
         float weight = bsdfSample.IsSpecular() ? 1 : PowerHeuristic(1, scatteringPdf, 1, lightPdf);
-        //if (!bsdfSample.IsSpecular())
-        //    weight = PowerHeuristic(1, scatteringPdf, 1, lightPdf);
         ld = f * li * weight / scatteringPdf;
     }
 
@@ -170,7 +168,7 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
 {
 	float3 li = 0;
     float3  beta = 1;
-    Interaction isectLast;
+    //Interaction isectLast;
     PathVertex pathVertex = (PathVertex)0;
     Interaction isect;
 	for (int bounces = 0; bounces < MAX_PATH; bounces++)
@@ -221,6 +219,7 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             {
                 Light light = lights[lightIndex];
                 li += light.radiance * beta;
+                break;
                 //color = light.radiance;
                 //isect.p.w = 0;
             }
@@ -248,7 +247,7 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
                     beta /= 1 - q;
             }
 
-            isectLast = isect;
+            //isectLast = isect;
         }
         else
         {

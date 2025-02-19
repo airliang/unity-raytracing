@@ -13,7 +13,8 @@ public class DXRKernel : TracingKernel
     private RayTracingShader pathTracing = null;
     private MeshRenderer[] renderers = null;
     RayTracingSubMeshFlags[] m_SubMeshFlagArray = new RayTracingSubMeshFlags[k_MaxNumSubMeshes];
-    private RenderTexture outputTexture = null;
+    Material gBufferMaterial = null;
+    CommandBuffer renderGBufferCmd = null;
     private CommandBuffer cmdDXR = null;
 
     public Matrix4x4 _RasterToScreen;
@@ -69,7 +70,7 @@ public class DXRKernel : TracingKernel
         public static int _AccelerationStructure = -1;
         public static int _Output = -1;
         public static int _InvCameraViewProj = -1;
-        public static int _WorldSpaceCameraPos = -1;
+        public static int _CameraPosWS = -1;
         public static int _CameraFarDistance = -1;
         public static int _RasterToCamera = -1;
         public static int _CameraToWorld = -1;
@@ -77,6 +78,7 @@ public class DXRKernel : TracingKernel
         public static int _FocalLength = -1;
         public static int _FrameIndex = -1;
         public static int _MaxDepth = -1;
+        public static int _MinDepth = -1;
         public static int _LightsNum = -1;
         public static int _RNGs = -1;
         public static int _Lights = -1;
@@ -85,6 +87,9 @@ public class DXRKernel : TracingKernel
         public static int _LightDistributionDiscripts = -1;
         public static int _LightTriangles = -1;
         public static int _LightVertices = -1;
+        public static int _RayConeGBuffer = -1;
+        public static int _CameraConeSpreadAngle = -1;
+        public static int _Spectrums = -1;
     }
 
     public DXRKernel(DXRPTResource resourceData)
@@ -99,7 +104,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._AccelerationStructure = Shader.PropertyToID("_AccelerationStructure");
         DXRPathTracingParam._Output = Shader.PropertyToID("_Output");
         DXRPathTracingParam._InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
-        DXRPathTracingParam._WorldSpaceCameraPos = Shader.PropertyToID("_WorldSpaceCameraPos");
+        DXRPathTracingParam._CameraPosWS = Shader.PropertyToID("_CameraPosWS");
         DXRPathTracingParam._CameraFarDistance = Shader.PropertyToID("_CameraFarDistance");
         DXRPathTracingParam._RasterToCamera = Shader.PropertyToID("_RasterToCamera");
         DXRPathTracingParam._CameraToWorld = Shader.PropertyToID("_CameraToWorld");
@@ -107,6 +112,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._FocalLength = Shader.PropertyToID("_FocalLength");
         DXRPathTracingParam._FrameIndex = Shader.PropertyToID("_FrameIndex");
         DXRPathTracingParam._MaxDepth = Shader.PropertyToID("_MaxDepth");
+        DXRPathTracingParam._MinDepth = Shader.PropertyToID("_MinDepth");
         DXRPathTracingParam._LightsNum = Shader.PropertyToID("_LightsNum");
         DXRPathTracingParam._RNGs = Shader.PropertyToID("_RNGs");
         DXRPathTracingParam._Lights = Shader.PropertyToID("_Lights");
@@ -115,37 +121,29 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._LightDistributionDiscripts = Shader.PropertyToID("_LightDistributionDiscripts");
         DXRPathTracingParam._LightTriangles = Shader.PropertyToID("_LightTriangles");
         DXRPathTracingParam._LightVertices = Shader.PropertyToID("_LightVertices");
+        DXRPathTracingParam._RayConeGBuffer = Shader.PropertyToID("_RayConeGBuffer");
+        DXRPathTracingParam._CameraConeSpreadAngle = Shader.PropertyToID("_CameraConeSpreadAngle");
+        DXRPathTracingParam._Spectrums = Shader.PropertyToID("_Spectrums");
     }
 
     public int GetCurrentSPPCount()
     {
-        throw new System.NotImplementedException();
+        return framesNum;
     }
 
     public GPUFilterData GetGPUFilterData()
     {
-        throw new System.NotImplementedException();
+        return null;
     }
 
     public GPUSceneData GetGPUSceneData()
     {
-        throw new System.NotImplementedException();
+        return null;
     }
 
-    public RenderTexture GetOutputTexture()
-    {
-        return outputTexture;
-    }
 
     public void Release()
     {
-        if (outputTexture != null)
-        {
-            outputTexture.Release();
-            Object.Destroy(outputTexture);
-            outputTexture = null;
-        }
-
         if (rtas != null)
         {
             rtas.Release();
@@ -181,135 +179,6 @@ public class DXRKernel : TracingKernel
 
     void SetupLightsData(MeshRenderer[] meshRenderers, Dictionary<MeshRenderer, uint> renderInstanceIDs)
     {
-        /*
-        Dictionary<Mesh, AreaLightResource> meshDistributions = new Dictionary<Mesh, AreaLightResource>();
-        int lightMeshIndex = 0;
-        List<int> lightMeshTriangleStartOffsets = new List<int>();
-        for (int i = 0; i < meshRenderers.Length; ++i)
-        {
-            MeshRenderer meshRenderer = meshRenderers[i];
-
-            //BSDFMaterial bsdfMaterial = shapes[i].GetComponent<BSDFMaterial>();
-            Transform transform = meshRenderer.transform;
-            int lightIndex = -1;
-
-            MeshFilter meshFilter = meshRenderer.GetComponent<MeshFilter>();
-            Mesh mesh = meshFilter.sharedMesh;
-
-            Light lightComponent = meshRenderer.GetComponent<Light>();
-
-            if (lightComponent != null && lightComponent.type == LightType.Area)
-            {
-                Profiler.BeginSample("Lights data fetching");
-                AreaLightResource areaLight = null;
-                List<Vector3> lightMeshVertices = new List<Vector3>();
-                if (!meshDistributions.TryGetValue(mesh, out areaLight))
-                {
-                    areaLight = new AreaLightResource();
-                    areaLight.meshIndex = lightMeshIndex++;
-                    lightMeshTriangleStartOffsets.Add(lightTriangles.Count);
-                    mesh.GetVertices(lightMeshVertices);
-
-                    for (int sm = 0; sm < mesh.subMeshCount; ++sm)
-                    {
-                        List<int> meshTriangles = new List<int>();
-                        mesh.GetTriangles(meshTriangles, sm);
-                        for (int t = 0; t < meshTriangles.Count; t += 3)
-                        {
-                            Vector3 p0 = lightMeshVertices[meshTriangles[t]];       //transform.TransformPoint(lightMeshVertices[meshTriangles[t]]);
-                            Vector3 p1 = lightMeshVertices[meshTriangles[t + 1]];   //transform.TransformPoint(lightMeshVertices[meshTriangles[t + 1]]);
-                            Vector3 p2 = lightMeshVertices[meshTriangles[t + 2]];   //transform.TransformPoint(lightMeshVertices[meshTriangles[t + 2]]);
-                            float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
-                            areaLight.triangleAreas.Add(triangleArea);
-                        }
-                    }
-
-                    areaLight.triangleDistributions = new Distribution1D(areaLight.triangleAreas.ToArray(), 0, areaLight.triangleAreas.Count, 0, areaLight.triangleAreas.Count);
-                    meshDistributions.Add(mesh, areaLight);
-                    //lightTriangleDistributions.AddRange(areaLight.triangleDistributions);
-                }
-
-                float lightArea = 0;
-
-                lightMeshVertices.Clear();
-                mesh.GetVertices(lightMeshVertices);
-
-                int vertexOffset = gpuLightVertices.Count;
-                List<Vector2> meshUVs = new List<Vector2>();
-                List<Vector3> meshVertices = new List<Vector3>();
-                List<Vector3> meshNormals = new List<Vector3>();
-
-                mesh.GetUVs(0, meshUVs);
-
-                mesh.GetVertices(meshVertices);
-                mesh.GetNormals(meshNormals);
-                if (meshNormals.Count == 0)
-                {
-                    mesh.RecalculateNormals();
-                    mesh.GetNormals(meshNormals);
-                }
-
-                for (int sm = 0; sm < mesh.subMeshCount; ++sm)
-                {
-                    List<int> meshTriangles = new List<int>();
-                    mesh.GetTriangles(meshTriangles, sm);
-                    for (int t = 0; t < meshTriangles.Count; t += 3)
-                    {
-                        Vector3 p0 = transform.TransformPoint(lightMeshVertices[meshTriangles[t]]);
-                        Vector3 p1 = transform.TransformPoint(lightMeshVertices[meshTriangles[t + 1]]);
-                        Vector3 p2 = transform.TransformPoint(lightMeshVertices[meshTriangles[t + 2]]);
-                        float triangleArea = Vector3.Cross(p1 - p0, p2 - p0).magnitude * 0.5f;
-                        lightArea += triangleArea;
-                    }
-
-                    SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
-                    GPUVertex vertexTmp = new GPUVertex();
-                    for (int j = 0; j < subMeshDescriptor.vertexCount; ++j)
-                    {
-                        vertexTmp.position = lightMeshVertices[subMeshDescriptor.firstVertex + j];//mesh.vertices[j];
-                        vertexTmp.uv = meshUVs.Count == 0 ? Vector2.zero : meshUVs[subMeshDescriptor.firstVertex + j];
-                        vertexTmp.normal = meshNormals[subMeshDescriptor.firstVertex + j];
-                        gpuLightVertices.Add(vertexTmp);
-                    }
-                    for (int j = 0; j < subMeshDescriptor.indexCount / 3; ++j)
-                    {
-                        Vector3Int triangleIndex = new Vector3Int(meshTriangles[j * 3 + subMeshDescriptor.indexStart] + vertexOffset,
-                            meshTriangles[j * 3 + subMeshDescriptor.indexStart + 1] + vertexOffset, meshTriangles[j * 3 + subMeshDescriptor.indexStart + 2] + vertexOffset);
-                        lightTriangles.Add(triangleIndex);
-                    }
-                }
-
-                Material lightMaterial = meshRenderer.sharedMaterial;
-                Vector3 lightRadiance = Vector3.zero;
-                if (lightMaterial != null && lightMaterial.shader.name == "RayTracing/AreaLight")
-                {
-                    Color emssionColor = lightMaterial.GetColor("_Emission");
-                    Vector3 lightIntensity = lightMaterial.GetVector("_Intensity");
-                    lightRadiance = emssionColor.LinearToVector3().Mul(lightIntensity);
-                }
-
-                lightIndex = gpuAreaLights.Count;
-                GPUAreaLight gpuLight = new GPUAreaLight();
-
-                gpuLight.radiance = lightRadiance;
-                //gpuLight.intensity = areaLightInstance.intensity;
-                //gpuLight.trianglesNum = mesh.triangles.Length / 3;
-                //gpuLight.triangleStartOffset = lightMeshTriangleStartOffsets[areaLight.meshIndex];
-                //gpuLight.pointRadius = 0;
-                //why add 1? because the first discript is the light object distributions.
-                gpuLight.distributionDiscriptIndex = gpuAreaLights.Count + 1;
-                gpuLight.localToWorld = meshRenderer.transform.localToWorldMatrix;
-                gpuLight.area = lightArea;
-                gpuLight.instanceID = lightIndex;
-                gpuAreaLights.Add(gpuLight);
-                areaLight.gpuLightIndices.Add(lightIndex);
-                renderInstanceIDs.Add(meshRenderer, (uint)lightIndex);
-                Profiler.EndSample();
-            }
-        }
-        */
-
-        //List<MeshRenderer> lightRenderers = new List<MeshRenderer>();
         List<AreaLightInstance> areaLightInstances = new List<AreaLightInstance>();
         int totalTrianglesCount = 0;
         for (int i = 0; i < meshRenderers.Length; ++i)
@@ -343,7 +212,7 @@ public class DXRKernel : TracingKernel
                 areaLightInstance.lightMeshRenderer = meshRenderer;
                 areaLightInstance.lightMesh = mesh;
                 areaLightInstances.Add(areaLightInstance);
-
+                renderInstanceIDs.Add(meshRenderer, (uint)lightIndex);
             }
         }
 
@@ -510,7 +379,7 @@ public class DXRKernel : TracingKernel
     {
         if (RNGBuffer == null)
         {
-            RNGBuffer = new ComputeBuffer(outputTexture.width * outputTexture.height, sizeof(uint), ComputeBufferType.Structured);
+            RNGBuffer = new ComputeBuffer(_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height, sizeof(uint), ComputeBufferType.Structured);
 
             float rasterWidth = Screen.width;
             float rasterHeight = Screen.height;
@@ -545,6 +414,12 @@ public class DXRKernel : TracingKernel
 
         _RasterToCamera = cameraToScreen.inverse * _RasterToScreen;
         _WorldToRaster = screenToRaster * cameraToScreen * camera.transform.localToWorldMatrix;
+
+        //for test
+        Vector3 cameraPoint = new Vector3(300.5f, 120.5f, 0);
+        Vector3 nearplanePoint = _RasterToCamera.MultiplyPoint(cameraPoint);//mul(_RasterToCamera, float4(pFilm, 1));
+        Vector3 direction = Vector3.Normalize(nearplanePoint);
+        Vector3 directionWS = camera.transform.localToWorldMatrix.MultiplyVector(direction);
     }
 
     public IEnumerator Setup(Camera camera, RaytracingData data)
@@ -576,13 +451,6 @@ public class DXRKernel : TracingKernel
                 rtas.Build();
 
                 
-            }
-
-            if (outputTexture == null)
-            {
-                outputTexture = new RenderTexture(Screen.width, Screen.height, 0, RenderTextureFormat.ARGBHalf, 0);
-                outputTexture.enableRandomWrite = true;
-                outputTexture.Create();
             }
 
             yield return null;
@@ -648,6 +516,7 @@ public class DXRKernel : TracingKernel
         cmd.SetGlobalBuffer(DXRPathTracingParam._LightDistributionDiscripts, lightDistributionDiscriptBuffer);
         cmd.SetGlobalBuffer(DXRPathTracingParam._LightTriangles, lightTrianglesBuffer);
         cmd.SetGlobalBuffer(DXRPathTracingParam._LightVertices, lightVerticesBuffer);
+        cmd.SetGlobalBuffer(DXRPathTracingParam._TriangleLights, triangleLightsBuffer);
     }
 
     public bool Update(Camera camera)
@@ -657,6 +526,8 @@ public class DXRKernel : TracingKernel
             return true;
         }
         SetupSceneCamera(camera);
+
+        
 
         InitRNGs();
 
@@ -671,29 +542,33 @@ public class DXRKernel : TracingKernel
             
             cmdDXR.SetRayTracingShaderPass(pathTracing, "RayTracing");
             cmdDXR.SetRayTracingAccelerationStructure(pathTracing, DXRPathTracingParam._AccelerationStructure, rtas);
-            cmdDXR.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._Output, outputTexture);
+            cmdDXR.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
             var projMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
             var viewMatrix = camera.worldToCameraMatrix;
             var viewProjMatrix = projMatrix * viewMatrix;
             var invViewProjMatrix = Matrix4x4.Inverse(viewProjMatrix);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._InvCameraViewProj, invViewProjMatrix);
-            cmdDXR.SetGlobalVector(DXRPathTracingParam._WorldSpaceCameraPos, camera.transform.position);
+            cmdDXR.SetGlobalVector(DXRPathTracingParam._CameraPosWS, camera.transform.position);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraFarDistance, camera.farClipPlane);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._CameraToWorld, camera.transform.localToWorldMatrix);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._RasterToCamera, _RasterToCamera);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._FocalLength, _rayTracingData._FocalLength);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._LensRadius, _rayTracingData._LensRadius);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._FrameIndex, framesNum);
+            cmdDXR.SetGlobalInt(DXRPathTracingParam._MinDepth, _rayTracingData.MinDepth);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MaxDepth, _rayTracingData.MaxDepth);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count);
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._RNGs, RNGBuffer);
+            cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
+            cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
+            cmdDXR.SetGlobalTexture(DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
 
             //filter importance sampling
             SetFilterGPUData(cmdDXR);
 
             SetLightGPUData(cmdDXR);
 
-            cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)outputTexture.width, (uint)outputTexture.height, 1, camera);
+            cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
         }
         cmdDXR.EndSample("DXR Pathtracing");
         Graphics.ExecuteCommandBuffer(cmdDXR);

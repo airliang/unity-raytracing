@@ -1,6 +1,6 @@
 #ifndef MATERIALS_HLSL
 #define MATERIALS_HLSL
-
+#include "DXRCommon.hlsl"
 #include "fresnel.hlsl"
 #include "bxdf.hlsl"
 
@@ -34,22 +34,6 @@ struct TextureSampleInfo
 	float screenSpaceArea;
 	float uvArea;
 	float2 uv;
-};
-
-struct Material
-{
-    int materialType;
-    float3 kd;
-    float3 ks;
-    float3 transmission;
-    float metallic;
-    float specular;
-    float roughness;
-    float anisotropy;
-    float3 eta;
-    float3 k;             //metal material absorption
-    float fresnelType;
-    float4 albedo_ST;
 };
 
 struct ShadingMaterial
@@ -337,7 +321,7 @@ BSDFSample SampleLambert(ShadingMaterial material, float3 wo, inout RNG rng)
 {
 	BSDFSample bsdfSample = (BSDFSample)0;
 	bsdfSample.bxdfFlag = BXDF_DIFFUSE;
-	float2 u = Get2D(rng);
+    float2 u = float2(0.1, 0.3);//Get2D(rng);
 	float3 wi = CosineSampleHemisphere(u);
 	if (wo.z < 0)
 		wi.z *= -1;
@@ -456,16 +440,16 @@ BSDFSample SampleMaterialBRDF(Material material, HitSurface hitSurface, inout RN
 	{
 		return SampleLambert(shadingMaterial, wo, rng);
 	}
-	//case Plastic:
-	//	return SamplePlastic(shadingMaterial, wo, rng);
-	//case Metal:
-	//	return SampleMetal(shadingMaterial, wo, rng);
-	//case Mirror:
-	//	return SampleMirror(shadingMaterial, wo, rng);
-	//case Glass:
-	//	return SampleGlass(shadingMaterial, wo, rng);
-	//case Substrate:
-	//	return SampleSubstrate(shadingMaterial, wo, rng);
+	case Plastic:
+		return SamplePlastic(shadingMaterial, wo, rng);
+	case Metal:
+		return SampleMetal(shadingMaterial, wo, rng);
+	case Mirror:
+		return SampleMirror(shadingMaterial, wo, rng);
+	case Glass:
+		return SampleGlass(shadingMaterial, wo, rng);
+	case Substrate:
+		return SampleSubstrate(shadingMaterial, wo, rng);
 	default:
 	{
 		return SampleLambert(shadingMaterial, wo, rng);
