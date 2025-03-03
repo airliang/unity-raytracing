@@ -57,25 +57,19 @@ float3 MIS_ShadowRay(Light light, Interaction isect, Material material, float li
 float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
-    //float3 woLocal = isect.WorldToLocal(isect.wo);
-    //float3 wi;
-    //float scatteringPdf = 0;
     pathVertex = (PathVertex)0;
-    //float3 wiLocal;
-    //float2 u = Get2D(rng);
     
     BSDFSample bsdfSample = SampleMaterialBRDF(material, isect, rng);
     float3 wi = isect.LocalToWorld(bsdfSample.wi);
+
     float scatteringPdf = bsdfSample.pdf;
     float3 f = bsdfSample.reflectance * abs(dot(wi, isect.normal));
     
     if (!IsBlack(f) && scatteringPdf > 0)
     {
         Ray ray = SpawnRay(isect.p.xyz, wi, isect.normal, FLT_MAX);
-        //Interaction lightISect = (Interaction)0;
         HitInfo hitInfo = (HitInfo)0;
         bool found = ClosestHit(ray, hitInfo);
-        //pathVertex.nextISect = lightISect; 
         pathVertex.found = found ? 1 : 0;  //can not use this expression or it will be something error. I don't know why.
         
         float3 li = 0;
@@ -97,15 +91,6 @@ float3 MIS_BSDF(Interaction isect, Material material, inout RNG rng, out PathVer
                     li = Light_Le(wi, hitLight);
                 }
             }
-            //if (meshInstance.GetLightIndex() == lightIndex)
-            //{
-            //    lightPdf = AreaLightPdf(light, pathVertex.nextISect) * lightSourcePdf;
-
-            //    if (lightPdf > 0)
-            //    {
-            //        li = Light_Le(wi, light);
-            //    }
-            //}
         }
         else if (_EnvLightIndex >= 0)//(light.type == EnvLightType)
         {
@@ -142,7 +127,7 @@ Light SampleLightSource(inout RNG rng, out float lightSourcePdf, out int lightIn
     return light;
 }
 
-float3 EstimateDirectLighting(Interaction isect, inout RNG rng, out PathVertex pathVertex, bool breakPath)
+float3 EstimateDirectLighting(Interaction isect, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
 {
     breakPath = false;
     //PathRadiance pathRadiance = (PathRadiance)0;
@@ -156,7 +141,7 @@ float3 EstimateDirectLighting(Interaction isect, inout RNG rng, out PathVertex p
     float3 ld = MIS_ShadowRay(light, isect, material, lightSourcePdf, rng);
     ld += MIS_BSDF(isect, material, rng, pathVertex);
 
-    if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0 || MaxValue(ld) == 0)
+    if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0)
     {
         breakPath = true;
     }
@@ -228,7 +213,6 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             float3 ld = EstimateDirectLighting(isect, rng, pathVertex, breakPath);
             //li += beta * SampleLight(isect, wi, rng, pathBeta, ray);
             li += ld * beta;
-            //return li;
             if (breakPath)
                 break;
             
@@ -259,7 +243,6 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             break;
         }
 
-        //ray = SpawnRay(isect.p.xyz, pathVertex.wi, isect.normal, FLT_MAX);
         isect = pathVertex.nextISect;
 	}
 	return li;

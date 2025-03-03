@@ -13,20 +13,33 @@ void MyRaygenShader()
     uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
 
     RNG rng = GetRNG(threadId);
-    RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
+    float3 color = 0;
+    if (_DebugView == 0)
+    {
+        RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
 
-    float3 li = PathLi(rayDescriptor, dispatchIdx, rng);
-    float3 radiance = li; 
-    //third step: output the final radiance to texture
-    float3 spectrum = _Spectrums[dispatchIdx];
-    float t = 1.0f / _FrameIndex;
-    float3 curSpectrum = lerp(spectrum, radiance, t);
-    //spectrum.rgb += radiance;
-    _Spectrums[dispatchIdx] = float4(curSpectrum, 1);
+        float3 li = PathLi(rayDescriptor, dispatchIdx, rng);
+        float3 radiance = li; 
+        //third step: output the final radiance to texture
+        float3 spectrum = _Spectrums[dispatchIdx];
+        float t = 1.0f / _FrameIndex;
+        float3 curSpectrum = lerp(spectrum, radiance, t);
+        //spectrum.rgb += radiance;
+        _Spectrums[dispatchIdx] = float4(curSpectrum, 1);
+        color = curSpectrum;
+    }
+    else
+    {
+        if (_DebugView == 8)
+        {
+            float2 u = Get2D(rng);
+            color = float3(u, Get1D(rng));
+        }
+    }
     //color = curSpectrum;
 
     WriteRNG(threadId, rng);
-    _Output[dispatchIdx] = float4(curSpectrum, 1);
+    _Output[dispatchIdx] = float4(color, 1);
 }
 
 [shader("miss")]

@@ -48,6 +48,7 @@ struct PathVertex
     float  bsdfPdf;
     int    found;
     HitSurface nextHit;
+    Material nextMaterial;
 };
 
 struct RayCone
@@ -183,12 +184,12 @@ HitSurface GetHitSurface(uint primIndex, float3 wo, AttributeData attributeData,
 float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
+    pathVertex = (PathVertex)0;
     BSDFSample bsdfSample = SampleMaterialBRDF(material, hitSurface, rng);
-    float2 u = Get2D(rng);
 
     float scatteringPdf = bsdfSample.pdf;
     float3 wi = hitSurface.LocalToWorld(bsdfSample.wi);
-    return normalize(wi);
+    //return normalize(wi);
     float3 f = bsdfSample.reflectance * abs(dot(wi, hitSurface.normal));
 
     if (!IsBlack(f) && scatteringPdf > 0)
@@ -204,15 +205,16 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
         payLoad.instanceID = -1;
         payLoad.hitResult = HIT_MISS;
 
-        TraceRay(_AccelerationStructure, /*RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | */RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, ray, payLoad);
+        TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
 
         if (payLoad.hitResult > HIT_MISS)
         {
+            pathVertex.found = 1;
             pathVertex.nextHit = payLoad.hitSurface;
+            pathVertex.nextMaterial = payLoad.material;
             
             if (payLoad.hitResult == HIT_LIGHT)
             {
-                return float3(1, 0, 0);
                 int lightIndex = payLoad.hitSurface.lightIndex;
                 AreaLight hitLight = _Lights[lightIndex];
                 float lightSourcePmf = LightSourcePmf(lightIndex);
@@ -221,11 +223,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
                 {
                     li = hitLight.radiance;
                 }
-            }
-        }
-        else
-        {
-            //li = float3(1, 0, 0);
+            }       
         }
         
         float weight = bsdfSample.IsSpecular() ? 1 : PowerHeuristic(1, scatteringPdf, 1, lightPdf);
@@ -284,7 +282,7 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
     return ld;
 }
 
-float3 EstimateDirectLighting(HitSurface hitSurface, Material material, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
+float3 EstimateDirectLighting(HitSurface hitSurface, Material material, inout RNG rng, out PathVertex pathVertex, bool breakPath)
 {
     breakPath = false;
     float lightSourcePdf = 1.0;
@@ -294,7 +292,7 @@ float3 EstimateDirectLighting(HitSurface hitSurface, Material material, inout RN
     float3 ld = MIS_ShadowRay(light, hitSurface, material, lightSourcePdf, rng);
     ld += MIS_BSDF(hitSurface, material, rng, pathVertex);
 
-    if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0 || MaxValue(ld) == 0)
+    if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0)
     {
         breakPath = true;
     }
@@ -312,19 +310,20 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
     payLoad.instanceID = -1;
     payLoad.isHitLightCheck = 0;
     payLoad.hitResult = 0;
-    //HitSurface hitLast;
     HitSurface hitCur;
+    Material material;
 
-    for (int bounces = 0; bounces < 1/*_MaxDepth*/; bounces++)
+    for (int bounces = 0; bounces < _MaxDepth; bounces++)
     {
         bool foundIntersect = false;
         if (bounces == 0)
         {
-            TraceRay(_AccelerationStructure, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, ray, payLoad);
+            TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
             foundIntersect = payLoad.hitResult > 0;
             if (foundIntersect)
             {
                 hitCur = payLoad.hitSurface;
+                material = payLoad.material;
             }
         }
         else
@@ -355,14 +354,18 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
             {
                 AreaLight light = _Lights[lightIndex];
                 li += light.radiance * beta;
+                break;
             }
 
             bool breakPath = false;
-            float3 ld = EstimateDirectLighting(hitCur, payLoad.material, rng, pathVertex, breakPath);
+            float3 ld = EstimateDirectLighting(hitCur, material, rng, pathVertex, breakPath);
             li += ld * beta;
 
             if (breakPath)
+            {
+                //return pathVertex.wi;
                 break;
+            }
 
             float3 throughput = pathVertex.bsdfVal / pathVertex.bsdfPdf;
             beta *= throughput;
@@ -386,14 +389,13 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
             //{
             //    li += beta * EnviromentLightLe(ray.direction);
             //}
+            
             break;
         }
         hitCur = pathVertex.nextHit;
-        if (IsBlack(hitCur.wo))
-        {
-            //return float3(1, 0, 0);
-        }
+        material = pathVertex.nextMaterial;
     }
+    
     return li;
 }
 #endif

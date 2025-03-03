@@ -90,6 +90,7 @@ public class DXRKernel : TracingKernel
         public static int _RayConeGBuffer = -1;
         public static int _CameraConeSpreadAngle = -1;
         public static int _Spectrums = -1;
+        public static int _DebugView = -1;
     }
 
     public DXRKernel(DXRPTResource resourceData)
@@ -124,6 +125,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._RayConeGBuffer = Shader.PropertyToID("_RayConeGBuffer");
         DXRPathTracingParam._CameraConeSpreadAngle = Shader.PropertyToID("_CameraConeSpreadAngle");
         DXRPathTracingParam._Spectrums = Shader.PropertyToID("_Spectrums");
+        DXRPathTracingParam._DebugView = Shader.PropertyToID("_DebugView");
     }
 
     public int GetCurrentSPPCount()
@@ -562,6 +564,7 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
             cmdDXR.SetGlobalTexture(DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
+            cmdDXR.SetGlobalInt(DXRPathTracingParam._DebugView, (int)_rayTracingData.viewMode);
 
             //filter importance sampling
             SetFilterGPUData(cmdDXR);

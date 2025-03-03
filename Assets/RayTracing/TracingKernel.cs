@@ -17,6 +17,7 @@ public class RaytracingData
         ShadowRayView,
         FresnelView,
         EnvmapUVView,
+        RNGView,
     }
 
     public enum KernelType

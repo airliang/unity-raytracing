@@ -321,7 +321,7 @@ BSDFSample SampleLambert(ShadingMaterial material, float3 wo, inout RNG rng)
 {
 	BSDFSample bsdfSample = (BSDFSample)0;
 	bsdfSample.bxdfFlag = BXDF_DIFFUSE;
-    float2 u = float2(0.1, 0.3);//Get2D(rng);
+    float2 u = Get2D(rng);
 	float3 wi = CosineSampleHemisphere(u);
 	if (wo.z < 0)
 		wi.z *= -1;

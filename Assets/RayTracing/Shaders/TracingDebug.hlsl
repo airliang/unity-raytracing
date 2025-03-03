@@ -13,6 +13,7 @@
 #define ShadowRayView  5
 #define FresnelView 6
 #define EnvmapUVView 7
+#define RNGView 8
 
 int debugView;
 
@@ -294,6 +295,12 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
                     break;
                 }
             }
+        }
+        break;
+        case RNGView:
+        {
+            float2 u = Get2D(rng);
+            color = float3(u, Get1D(rng));
         }
         break;
         }

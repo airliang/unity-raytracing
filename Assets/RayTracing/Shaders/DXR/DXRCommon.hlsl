@@ -19,6 +19,7 @@ int _FrameIndex;
 int _MinDepth;
 int _MaxDepth;
 int _LightsNum;
+int _DebugView;
 CBUFFER_END
 
 struct CameraSample
