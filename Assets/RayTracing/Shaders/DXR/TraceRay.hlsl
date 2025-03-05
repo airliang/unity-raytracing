@@ -148,9 +148,9 @@ HitSurface GetHitSurface(uint primIndex, float3 wo, AttributeData attributeData,
     float2 uv1 = UnityRayTracingFetchVertexAttribute2(triangleIndices.y, kVertexAttributeTexCoord0);
     float2 uv2 = UnityRayTracingFetchVertexAttribute2(triangleIndices.z, kVertexAttributeTexCoord0);
     
-    float3 pos0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributePosition);
-    float3 pos1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributePosition);
-    float3 pos2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributePosition);
+    //float3 pos0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributePosition);
+    //float3 pos1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributePosition);
+    //float3 pos2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributePosition);
 
     float3 normal0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributeNormal);
     float3 normal1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributeNormal);
@@ -158,7 +158,7 @@ HitSurface GetHitSurface(uint primIndex, float3 wo, AttributeData attributeData,
 
     float2 uv = uv0 * barycentrics.x + uv1 * barycentrics.y + uv2 * barycentrics.z;
 
-    surface.uv = uv;
+    //surface.uv = uv;
     //float3 hitPos = float3(pos0 * uv.x + pos1 * uv.y + pos2 * (1.0 - uv.x - uv.y));
 
     float3 origin = WorldRayOrigin();
@@ -201,7 +201,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
         PathPayload payLoad;
 
         payLoad.direction = ray.Direction;
-        payLoad.isHitLightCheck = 0;
+        //payLoad.isHitLightCheck = 0;
         payLoad.instanceID = -1;
         payLoad.hitResult = HIT_MISS;
 
@@ -215,7 +215,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
             
             if (payLoad.hitResult == HIT_LIGHT)
             {
-                int lightIndex = payLoad.hitSurface.lightIndex;
+                int lightIndex = payLoad.instanceID;
                 AreaLight hitLight = _Lights[lightIndex];
                 float lightSourcePmf = LightSourcePmf(lightIndex);
                 lightPdf = AreaLightPdf(hitLight) * lightSourcePmf;
@@ -254,7 +254,7 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
         float3 woLocal = surface.WorldToLocal(surface.wo.xyz);
         float scatteringPdf = 0;
 
-        float3 f = MaterialBRDF(material, surface, woLocal, wiLocal, scatteringPdf);
+        float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
         if (!IsBlack(f) && scatteringPdf > 0)
         {
             RayDesc ray = SpawnRay(surface.position, samplePointOnLight - surface.position, surface.normal, 1.0 - ShadowEpsilon);
@@ -262,7 +262,7 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
 
             payLoad.direction = ray.Direction;
             payLoad.instanceID = -1;
-            payLoad.isHitLightCheck = 0;
+            //payLoad.isHitLightCheck = 0;
             payLoad.hitResult = HIT_MISS;
 
             TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
@@ -308,7 +308,7 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
     PathPayload payLoad;
     payLoad.direction = ray.Direction.xyz;
     payLoad.instanceID = -1;
-    payLoad.isHitLightCheck = 0;
+    //payLoad.isHitLightCheck = 0;
     payLoad.hitResult = 0;
     HitSurface hitCur;
     Material material;
@@ -333,7 +333,16 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
         
         if (foundIntersect)
         {
-            int lightIndex = hitCur.lightIndex;
+            if (bounces == 0)
+            {
+                int lightIndex = payLoad.instanceID;
+                if (lightIndex >= 0)
+                {
+                    AreaLight light = _Lights[lightIndex];
+                    li += light.radiance * beta;
+                    break;
+                }
+            }
 
             half4 surfaceBeta = _RayConeGBuffer[id.xy];
             RayCone preCone;
@@ -350,12 +359,7 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
                 hitCur.coneWidth = rayCone.width;
             }
 
-            if (lightIndex >= 0 && bounces == 0)
-            {
-                AreaLight light = _Lights[lightIndex];
-                li += light.radiance * beta;
-                break;
-            }
+            
 
             bool breakPath = false;
             float3 ld = EstimateDirectLighting(hitCur, material, rng, pathVertex, breakPath);

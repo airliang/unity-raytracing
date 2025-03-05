@@ -217,7 +217,7 @@ void ComputeBxDFFresnelBlend(ShadingMaterial shadingMaterial, out BxDFFresnelBle
 	bxdf.eta = shadingMaterial.eta;
 }
 
-float3 MaterialBRDF(Material material, HitSurface surface, float3 wo, float3 wi, out float pdf)
+float3 MaterialBRDF(Material material, float3 wo, float3 wi, out float pdf)
 {
 	ShadingMaterial shadingMaterial = (ShadingMaterial)0;
 	float3 f = 0;

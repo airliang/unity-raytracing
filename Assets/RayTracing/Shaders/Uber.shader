@@ -166,7 +166,7 @@ Shader "RayTracing/Uber"
                 //}
                 uint primIndex = PrimitiveIndex();
                 payLoad.hitSurface = GetHitSurface(primIndex, -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
-                payLoad.hitSurface.lightIndex = -1;
+                //payLoad.hitSurface.lightIndex = -1;
                 Material material = (Material) 0;
                 material.materialType = _MaterialType;
                 material.kd = _BaseColor.rgb;
@@ -177,10 +177,12 @@ Shader "RayTracing/Uber"
                 material.eta = _eta;
                 material.roughness = _roughnessU;
                 material.anisotropy = _roughnessV;
-                payLoad.primitiveID = primIndex;
+                //payLoad.primitiveID = primIndex;
                 payLoad.hitResult = HIT_MESH;
-                payLoad.isHitLightCheck = 0;
+                //payLoad.isHitLightCheck = 0;
                 payLoad.material = material;
+                payLoad.instanceID = -1;
+
             }
 
             [shader("anyhit")]

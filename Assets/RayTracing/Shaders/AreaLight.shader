@@ -88,9 +88,9 @@ Shader "RayTracing/AreaLight"
             {
                 payLoad.hitResult = HIT_LIGHT;
                 payLoad.instanceID = InstanceID();
-                payLoad.primitiveID = PrimitiveIndex();
-                payLoad.hitSurface = GetHitSurface(payLoad.primitiveID, -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
-                payLoad.hitSurface.lightIndex = InstanceID();
+                //payLoad.primitiveID = PrimitiveIndex();
+                payLoad.hitSurface = GetHitSurface(PrimitiveIndex(), -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
+                //payLoad.hitSurface.lightIndex = InstanceID();
     
                 Material material = (Material) 0;
                 material.kd = 0;
@@ -100,7 +100,7 @@ Shader "RayTracing/AreaLight"
             [shader("anyhit")]
             void AnyHitShader(inout PathPayload payLoad : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
             {
-                payLoad.hitSurface.lightIndex = InstanceID();
+                payLoad.instanceID = InstanceID();
                 payLoad.hitResult = HIT_LIGHT;
             }
 

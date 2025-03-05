@@ -49,13 +49,13 @@ struct Material
     float3 eta;
     float3 k;             //metal material absorption
     float fresnelType;
-    float4 albedo_ST;
+    //float4 albedo_ST;
 };
 
 struct HitSurface
 {
     float3 position;
-    float2 uv;
+    //float2 uv;
     float3 normal;
     float3 tangent;  //the same as pbrt's ss(x)
     float3 bitangent; //the same as pbrt's ts(y)
@@ -63,9 +63,8 @@ struct HitSurface
     float  primArea;
     float  coneWidth;     //ray cone width at this surface point
     float  screenSpaceArea;
-    float  uvArea;
-    float  mip;
-    int lightIndex;
+    //float  uvArea;
+    //float  mip;
     float  hitT;
 
     float3 WorldToLocal(float3 v)
@@ -81,15 +80,11 @@ struct HitSurface
 
 struct PathPayload
 {
-    //float4 color;
     float3 direction;
-    //float3 beta;
-    
-    //int bounce;
     int hitResult;
     int instanceID;
-    int primitiveID;
-    int isHitLightCheck;
+    int instanceIndex;
+    //int isHitLightCheck;
 
     HitSurface hitSurface;
     Material  material;
