@@ -50,6 +50,8 @@ struct ShadingMaterial
     float  fresnelType;
 };
 
+GLOBAL_RESOURCE(RWStructuredBuffer<Material>, _Materials, u1);
+
 //Texture2DArray albedoTexArray;
 //Texture2DArray normalTexArray;
 //Texture2DArray glossySpecularTexArray;
@@ -420,7 +422,7 @@ BSDFSample SampleSubstrate(ShadingMaterial material, float3 wo, inout RNG rng)
 }
 
 //wi wo is a vector which in local space of the interfaction surface
-BSDFSample SampleMaterialBRDF(Material material, HitSurface hitSurface, inout RNG rng)
+BSDFSample SampleMaterialBRDF(Material material, float3 woLocal/*HitSurface hitSurface*/, inout RNG rng)
 {
 	ShadingMaterial shadingMaterial = (ShadingMaterial)0;
 	TextureSampleInfo texLod = (TextureSampleInfo)0;
@@ -430,7 +432,7 @@ BSDFSample SampleMaterialBRDF(Material material, HitSurface hitSurface, inout RN
 	//texLod.uvArea = isect.uvArea;
 	//texLod.uv = isect.uv.xy;
 	UnpackShadingMaterial(material, shadingMaterial, texLod);
-	float3 wo = hitSurface.WorldToLocal(hitSurface.wo);
+    float3 wo = woLocal;//hitSurface.WorldToLocal(hitSurface.wo);
 		
 	switch (shadingMaterial.materialType)
 	{

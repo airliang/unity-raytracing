@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Profiling;
@@ -27,7 +28,7 @@ public class DXRKernel : TracingKernel
     ComputeBuffer filterConditionBuffer;
     ComputeBuffer filterConditionsFuncIntsBuffer;
 
-    
+    private bool supportedRTX = false;
 
     ComputeBuffer RNGBuffer;
     ComputeShader InitRandom;
@@ -37,6 +38,9 @@ public class DXRKernel : TracingKernel
     public List<GPUVertex> gpuLightVertices = new List<GPUVertex>();
     public List<GPUAreaLight> gpuAreaLights = new List<GPUAreaLight>();
     private List<GPUTriangleLight> GPUTriangleLights = new List<GPUTriangleLight>();
+    private List<GPUDXRMaterial> gpuMaterials = new List<GPUDXRMaterial>();
+    Dictionary<Material, int> materialIds = new Dictionary<Material, int>();
+    private List<GPUInstanceTransform> instanceTransforms = new List<GPUInstanceTransform>();
 
     ComputeBuffer lightBuffer;
     ComputeBuffer triangleLightsBuffer;
@@ -45,6 +49,9 @@ public class DXRKernel : TracingKernel
 
     ComputeBuffer lightTrianglesBuffer;
     ComputeBuffer lightVerticesBuffer;
+
+    ComputeBuffer materialBuffer;
+    ComputeBuffer instanceTransformsBuffer;
 
     public struct GPUAreaLight
     {
@@ -65,6 +72,33 @@ public class DXRKernel : TracingKernel
         public float padding;
     }
 
+    public struct GPUDXRMaterial
+    {
+        //public BSDFMaterial.BSDFType materialType;
+        //public Vector4 materialParams;  //x-materialtype, y-sigma, z-roughness
+        public int materialType;
+        public Vector3 baseColor;       //a is texture mask
+        public Vector3 specularColor;
+        public Vector3 transmission;
+        public float metallic;
+        public float specular;      //when material is plastic, stand for ks
+        public float roughness;     //roughnessU
+        public float anisotropy;    //roughnessV
+        public Vector3 eta;
+        public Vector3 k;             //metal material absorption
+        public float albedoMapMask;
+        public float normalMapMask;
+        public int   lightIndex;
+        public float fresnelType;
+        public Vector4 albedo_ST;
+    }
+
+    public struct GPUInstanceTransform
+    {
+        public Matrix4x4 localToWorld;
+        public Matrix4x4 worldToLocal;
+    }
+
     class DXRPathTracingParam
     {
         public static int _AccelerationStructure = -1;
@@ -74,6 +108,7 @@ public class DXRKernel : TracingKernel
         public static int _CameraFarDistance = -1;
         public static int _RasterToCamera = -1;
         public static int _CameraToWorld = -1;
+        public static int _WorldToRaster = -1;
         public static int _LensRadius = -1;
         public static int _FocalLength = -1;
         public static int _FrameIndex = -1;
@@ -91,13 +126,20 @@ public class DXRKernel : TracingKernel
         public static int _CameraConeSpreadAngle = -1;
         public static int _Spectrums = -1;
         public static int _DebugView = -1;
+        public static int _Materials = -1;
+        public static int _InstanceTransforms = -1;
     }
 
     public DXRKernel(DXRPTResource resourceData)
     {
-        InitDXRPathTracingParam();
-        pathTracing = resourceData.pathTracing;
-        InitRandom = resourceData.InitRandom;
+        supportedRTX = SystemInfo.supportsRayTracing;
+        if (supportedRTX)
+        {
+            InitDXRPathTracingParam();
+            pathTracing = resourceData.pathTracing;
+            InitRandom = resourceData.InitRandom;
+        }
+        
     }
 
     private void InitDXRPathTracingParam()
@@ -109,6 +151,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._CameraFarDistance = Shader.PropertyToID("_CameraFarDistance");
         DXRPathTracingParam._RasterToCamera = Shader.PropertyToID("_RasterToCamera");
         DXRPathTracingParam._CameraToWorld = Shader.PropertyToID("_CameraToWorld");
+        DXRPathTracingParam._WorldToRaster = Shader.PropertyToID("_WorldToRaster");
         DXRPathTracingParam._LensRadius = Shader.PropertyToID("_LensRadius");
         DXRPathTracingParam._FocalLength = Shader.PropertyToID("_FocalLength");
         DXRPathTracingParam._FrameIndex = Shader.PropertyToID("_FrameIndex");
@@ -126,6 +169,8 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._CameraConeSpreadAngle = Shader.PropertyToID("_CameraConeSpreadAngle");
         DXRPathTracingParam._Spectrums = Shader.PropertyToID("_Spectrums");
         DXRPathTracingParam._DebugView = Shader.PropertyToID("_DebugView");
+        DXRPathTracingParam._Materials = Shader.PropertyToID("_Materials");
+        DXRPathTracingParam._InstanceTransforms = Shader.PropertyToID("_InstanceTransforms");
     }
 
     public int GetCurrentSPPCount()
@@ -163,6 +208,8 @@ public class DXRKernel : TracingKernel
         lightDistributionDiscriptBuffer?.Release();
         lightTrianglesBuffer?.Release();
         lightVerticesBuffer?.Release();
+        materialBuffer?.Release();
+        instanceTransformsBuffer?.Release();
     }
 
     class AreaLightInstance
@@ -313,7 +360,7 @@ public class DXRKernel : TracingKernel
 
         if (lightVerticesBuffer == null)
         {
-            int vertexSize = System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUVertex));
+            int vertexSize = Marshal.SizeOf(typeof(GPUVertex));
             lightVerticesBuffer = new ComputeBuffer(gpuLightVertices.Count, vertexSize, ComputeBufferType.Structured);
         }
         lightVerticesBuffer.SetData(gpuLightVertices);
@@ -328,12 +375,12 @@ public class DXRKernel : TracingKernel
         {
             if (gpuAreaLights.Count > 0)
             {
-                lightBuffer = new ComputeBuffer(gpuAreaLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUAreaLight)), ComputeBufferType.Structured);
+                lightBuffer = new ComputeBuffer(gpuAreaLights.Count, Marshal.SizeOf(typeof(GPUAreaLight)), ComputeBufferType.Structured);
                 lightBuffer.SetData(gpuAreaLights);
             }
             else
             {
-                lightBuffer = new ComputeBuffer(1, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUAreaLight)), ComputeBufferType.Structured);
+                lightBuffer = new ComputeBuffer(1, Marshal.SizeOf(typeof(GPUAreaLight)), ComputeBufferType.Structured);
             }
         }
 
@@ -360,21 +407,137 @@ public class DXRKernel : TracingKernel
 
         if (triangleLightsBuffer == null && GPUTriangleLights.Count > 0)
         {
-            triangleLightsBuffer = new ComputeBuffer(GPUTriangleLights.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUTriangleLight)), ComputeBufferType.Default);
+            triangleLightsBuffer = new ComputeBuffer(GPUTriangleLights.Count, Marshal.SizeOf(typeof(GPUTriangleLight)), ComputeBufferType.Default);
             triangleLightsBuffer.SetData(GPUTriangleLights.ToArray());
         }
         //light distributions setting
         if (lightDistributionBuffer == null && LightDistributions1D.Count > 0)
         {
-            lightDistributionBuffer = new ComputeBuffer(LightDistributions1D.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
+            lightDistributionBuffer = new ComputeBuffer(LightDistributions1D.Count, Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Default);
             lightDistributionBuffer.SetData(LightDistributions1D.ToArray());
         }
 
         if (lightDistributionDiscriptBuffer == null)
         {
-            lightDistributionDiscriptBuffer = new ComputeBuffer(gpuDistributionDiscripts.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(GPUDistributionDiscript)), ComputeBufferType.Structured);
+            lightDistributionDiscriptBuffer = new ComputeBuffer(gpuDistributionDiscripts.Count, Marshal.SizeOf(typeof(GPUDistributionDiscript)), ComputeBufferType.Structured);
             lightDistributionDiscriptBuffer.SetData(gpuDistributionDiscripts.ToArray());
         }
+    }
+
+    void SetupMaterialData()
+    {
+        if (materialBuffer == null)
+        {
+            materialBuffer = new ComputeBuffer(_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height, 
+                Marshal.SizeOf(typeof(GPUMaterial)), ComputeBufferType.Structured);
+        }
+    }
+
+    void SetupTransformData(List<GPUInstanceTransform> transforms)
+    {
+        if (instanceTransformsBuffer == null)
+        {
+            instanceTransformsBuffer = new ComputeBuffer(transforms.Count, Marshal.SizeOf(typeof(GPUInstanceTransform)), ComputeBufferType.Structured);
+        }
+        instanceTransformsBuffer.SetData(transforms.ToArray());
+    }
+
+    GPUDXRMaterial ConvertUnityMaterial(Material material)
+    {
+        MaterialParam materialParam = MaterialParam.ConvertUnityMaterial(material);
+
+        GPUDXRMaterial gpuMaterial = new GPUDXRMaterial();
+
+        if (materialParam.AlbedoMap != null)
+        {
+            gpuMaterial.albedoMapMask = MathUtil.UInt32BitsToSingle(RayTracingTextures.Instance.AddAlbedoTexture(materialParam.AlbedoMap));
+            uint mask = MathUtil.SingleToUint32Bits(gpuMaterial.albedoMapMask) & 0x80000000;
+            mask = mask >> 31;
+            if (((MathUtil.SingleToUint32Bits(gpuMaterial.albedoMapMask) & 0x80000000) >> 31) > 0)
+                Debug.Log("mask = " + mask);
+        }
+        else
+            gpuMaterial.albedoMapMask = MathUtil.UInt32BitsToSingle(0);
+        gpuMaterial.baseColor = materialParam.useLinearBaseColor ? materialParam.LinearBaseColor : materialParam.BaseColor.LinearToVector3();
+        gpuMaterial.transmission = materialParam.Transmission.LinearToVector3();
+        gpuMaterial.fresnelType = materialParam.fresnelType;
+        gpuMaterial.specularColor = materialParam.GlossySpecularColor.ToVector3();
+        gpuMaterial.albedo_ST = materialParam.Albedo_ST;
+
+        if (materialParam.NormalMap != null)
+        {
+            gpuMaterial.normalMapMask = MathUtil.UInt32BitsToSingle(RayTracingTextures.Instance.AddNormalTexture(materialParam.NormalMap));
+        }
+        else
+            gpuMaterial.normalMapMask = MathUtil.UInt32BitsToSingle(0);
+
+        if (materialParam.MetallicGlossMap != null)
+        {
+            //gpuMaterial.metallicMapMask = MathUtil.UInt32BitsToSingle(RayTracingTextures.Instance.AddMetallicTexture(MetallicGlossMap));
+            //set the channel mask;
+        }
+        //else
+        //    gpuMaterial.metallicMapMask = MathUtil.UInt32BitsToSingle(0);
+        gpuMaterial.materialType = materialParam.materialType;
+        if (materialParam.materialType == (int)BSDFMaterialType.Disney)
+        {
+            gpuMaterial.metallic = materialParam.disneyParam.Metallic;
+            gpuMaterial.roughness = materialParam.disneyParam.Roughness;
+            gpuMaterial.specular = materialParam.disneyParam.Specular;
+            gpuMaterial.anisotropy = materialParam.disneyParam.Anisotropy;
+        }
+        else if (materialParam.materialType == (int)BSDFMaterialType.Plastic)
+        {
+            gpuMaterial.roughness = materialParam.RoughnessU;
+            gpuMaterial.anisotropy = materialParam.RoughnessV;
+            gpuMaterial.specularColor = materialParam.GlossySpecularColor.LinearToVector3();
+        }
+        else if (materialParam.materialType == (int)BSDFMaterialType.Metal)
+        {
+            gpuMaterial.roughness = materialParam.RoughnessU;
+            gpuMaterial.anisotropy = materialParam.RoughnessV;
+            gpuMaterial.eta = materialParam.Eta;
+            gpuMaterial.k = materialParam.K;
+        }
+        else if (materialParam.materialType == (int)BSDFMaterialType.Glass)
+        {
+            gpuMaterial.roughness = materialParam.RoughnessU;
+            gpuMaterial.anisotropy = materialParam.RoughnessV;
+            gpuMaterial.eta = materialParam.Eta;
+        }
+        else if (materialParam.materialType == (int)BSDFMaterialType.Substrate)
+        {
+            gpuMaterial.roughness = materialParam.RoughnessU;
+            gpuMaterial.anisotropy = materialParam.RoughnessV;
+            gpuMaterial.eta = materialParam.Eta;
+        }
+
+        return gpuMaterial;
+    }
+
+    int SetupMaterials(MeshRenderer renderer, int subMeshIndex, int lightIndex)
+    {
+        //Renderer renderer = shape.GetComponent<MeshRenderer>();
+        //if (renderer.sharedMaterial.HasProperty("_BaseColor"))
+        //{
+        //    Color _Color = renderer.sharedMaterials[subMeshIndex].GetColor("_BaseColor");
+        //}
+        int id = -1;
+        if (materialIds.TryGetValue(renderer.sharedMaterials[subMeshIndex], out id))
+        {
+            return id;
+        }
+        MaterialParam materialParam = MaterialParam.ConvertUnityMaterial(renderer.sharedMaterials[subMeshIndex]);
+        if (materialParam == null)
+            return -1;
+        GPUDXRMaterial gpuMtl = ConvertUnityMaterial(renderer.sharedMaterials[subMeshIndex]);
+        gpuMtl.lightIndex = lightIndex;
+        //gpuMtl.baseColor = bsdfMaterial.matte.kd.spectrum.LinearToVector4(); //_Color.linear;
+
+        id = gpuMaterials.Count;
+        materialIds.Add(renderer.sharedMaterials[subMeshIndex], id);
+        gpuMaterials.Add(gpuMtl);
+        return id;
     }
 
     void InitRNGs()
@@ -426,13 +589,14 @@ public class DXRKernel : TracingKernel
 
     public IEnumerator Setup(Camera camera, RaytracingData data)
     {
+        if (!supportedRTX)
+        {
+            yield break;
+        }
         while (RaytracingStates.states != RaytracingStates.States.Rendering)
         {
             _rayTracingData = data;
-            for (var i = 0; i < k_MaxNumSubMeshes; ++i)
-            {
-                m_SubMeshFlagArray[i] = RayTracingSubMeshFlags.Enabled;
-            }
+            
 
             if (rtas == null)
             {
@@ -440,14 +604,49 @@ public class DXRKernel : TracingKernel
                 Dictionary<MeshRenderer, uint> meshRenderIDs = new Dictionary<MeshRenderer, uint>();
                 SetupLightsData(renderers, meshRenderIDs);
                 rtas = new RayTracingAccelerationStructure();
+                uint instanceIndex = 0;
+                uint lightIndex = 0;
                 foreach (Renderer renderer in renderers)
                 {
+                    for (var i = 0; i < k_MaxNumSubMeshes; ++i)
+                    {
+                        m_SubMeshFlagArray[i] = RayTracingSubMeshFlags.Disabled;
+                    }
+
                     if (renderer.gameObject.activeSelf)
                     {
                         uint instanceID = uint.MaxValue;
                         if (meshRenderIDs.ContainsKey(renderer as MeshRenderer))
                             meshRenderIDs.TryGetValue(renderer as MeshRenderer, out instanceID);
+
+                        int subMeshesNum = 1;
+                        renderer.TryGetComponent(out MeshFilter meshFilter);
+                        if (meshFilter == null || meshFilter.sharedMesh == null)
+                        {
+                            continue;
+                        }
+                        subMeshesNum = meshFilter.sharedMesh.subMeshCount;
+                        for (int meshIdx = 0; meshIdx < subMeshesNum; ++meshIdx)
+                        {
+                            SetupMaterials(renderer as MeshRenderer, meshIdx, (int)instanceID);
+                            m_SubMeshFlagArray[meshIdx] = RayTracingSubMeshFlags.Enabled;
+                        }
+
+                        bool isLight = renderer.GetComponent<Light>() != null;
+                        if (isLight)
+                        {
+                            instanceID = (lightIndex << 16) | instanceIndex;
+                            lightIndex++;
+                        }
+                        else
+                        {
+                            instanceID = instanceIndex;
+                        }
+
                         rtas.AddInstance(renderer, m_SubMeshFlagArray, true, false, 0xFF, instanceID);
+                        Transform transform = renderer.transform;
+                        instanceTransforms.Add(new GPUInstanceTransform { localToWorld = transform.localToWorldMatrix, worldToLocal = transform.worldToLocalMatrix });
+                        instanceIndex++;
                     }
                 }
                 rtas.Build();
@@ -464,6 +663,10 @@ public class DXRKernel : TracingKernel
                 filter = new GaussianFilter(data.fiterRadius, data.gaussianSigma);
             }
             gpuFilterData.Setup(filter);
+
+            SetupMaterialData();
+
+            SetupTransformData(instanceTransforms);
 
             RaytracingStates.states = RaytracingStates.States.Rendering;
             yield return null;
@@ -523,6 +726,10 @@ public class DXRKernel : TracingKernel
 
     public bool Update(Camera camera)
     {
+        if (!supportedRTX)
+        {
+            return false;
+        }
         if (framesNum++ >= _rayTracingData.SamplesPerPixel)
         {
             return true;
@@ -554,6 +761,7 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraFarDistance, camera.farClipPlane);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._CameraToWorld, camera.transform.localToWorldMatrix);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._RasterToCamera, _RasterToCamera);
+            cmdDXR.SetGlobalMatrix(DXRPathTracingParam._WorldToRaster, _WorldToRaster);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._FocalLength, _rayTracingData._FocalLength);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._LensRadius, _rayTracingData._LensRadius);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._FrameIndex, framesNum);
@@ -570,6 +778,10 @@ public class DXRKernel : TracingKernel
             SetFilterGPUData(cmdDXR);
 
             SetLightGPUData(cmdDXR);
+
+            cmdDXR.SetGlobalBuffer(DXRPathTracingParam._InstanceTransforms, instanceTransformsBuffer);
+
+            cmdDXR.SetGlobalBuffer(DXRPathTracingParam._Materials, materialBuffer);
 
             cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
         }

@@ -223,10 +223,6 @@ RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)
 
 RayCone ComputeRayCone(RayCone preCone, float distance, float pixelSpreadAngle)
 {
-	//RayCone rayCone;
-	//rayCone.width = preSpreadAngle * distance;
-	//rayCone.spreadAngle = lastSpreadAngle;
-	//float gamma = cameraConeSpreadAngle;
 	return Propagate(preCone, pixelSpreadAngle, distance);
 }
 

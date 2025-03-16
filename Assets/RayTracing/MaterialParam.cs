@@ -34,7 +34,7 @@ public class MaterialParam
     public Vector4 Albedo_ST;
     public Color BaseColor = Color.white;
     public Vector3 LinearBaseColor = Vector3.one;
-    private bool useLinearBaseColor = false;
+    public bool useLinearBaseColor = false;
     public Texture2D NormalMap;
 
     public Color Transmission = Color.white;
@@ -55,7 +55,7 @@ public class MaterialParam
         public float Cutoff;
     }
 
-    DisneyParam disneyParam;
+    public DisneyParam disneyParam;
 
     public float RoughnessU;
     public float RoughnessV;

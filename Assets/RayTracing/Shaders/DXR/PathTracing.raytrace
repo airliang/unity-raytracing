@@ -18,7 +18,7 @@ void MyRaygenShader()
     {
         RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
 
-        float3 li = PathLi(rayDescriptor, dispatchIdx, rng);
+        float3 li = PathLi(rayDescriptor, threadId, dispatchIdx, rng);
         float3 radiance = li; 
         //third step: output the final radiance to texture
         float3 spectrum = _Spectrums[dispatchIdx];

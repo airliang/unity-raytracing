@@ -10,6 +10,7 @@ CBUFFER_START(CameraBuffer)
 float4x4 _InvCameraViewProj;
 float4x4 _RasterToCamera;
 float4x4 _CameraToWorld;
+float4x4 _WorldToRaster;
 float3   _CameraPosWS;
 float    _CameraFarDistance;
 float    _LensRadius;
@@ -22,6 +23,8 @@ int _LightsNum;
 int _DebugView;
 CBUFFER_END
 
+#define GLOBAL_RESOURCE(type, name, reg) type name : register(reg, space1);
+
 struct CameraSample
 {
     float2 pFilm;
@@ -30,6 +33,18 @@ struct CameraSample
 struct RNG
 {
     uint state;
+};
+
+struct RayCone
+{
+    float spreadAngle;
+    float width;
+};
+
+struct InstanceTransform
+{
+    float4x4 localToWorld;
+    float4x4 worldToLocal;
 };
 
 #define HIT_MISS 0
@@ -52,20 +67,17 @@ struct Material
     //float4 albedo_ST;
 };
 
-struct HitSurface
+struct Interaction
 {
     float3 position;
-    //float2 uv;
+    float2 uv;
     float3 normal;
     float3 tangent;  //the same as pbrt's ss(x)
     float3 bitangent; //the same as pbrt's ts(y)
     float3 wo;
-    float  primArea;
-    float  coneWidth;     //ray cone width at this surface point
+    //float  primArea;
+    float  uvArea;    
     float  screenSpaceArea;
-    //float  uvArea;
-    //float  mip;
-    float  hitT;
 
     float3 WorldToLocal(float3 v)
     {
@@ -78,16 +90,54 @@ struct HitSurface
     }
 };
 
+struct HitSurface
+{
+    float3 position;
+    //float2 uv;
+    float3 normal;
+    //float3 tangent;  //the same as pbrt's ss(x)
+    //float3 bitangent; //the same as pbrt's ts(y)
+    float3 wo;   //local space
+    //float  primArea;
+    //float  coneWidth;     //ray cone width at this surface point
+    //float  screenSpaceArea;
+    //float  uvArea;
+    //float  mip;
+    //float  hitT;
+
+    float3 WorldToLocal(float3 v, float3 tangent, float3 bitangent)
+    {
+        //float3 dpdu = float3(1, 0, 0);
+        //float3 dpdv = float3(0, 1, 0);
+        //CoordinateSystem(normal, dpdu, dpdv);
+        //float3 tangent = normalize(dpdu.xyz);
+        //float3 bitangent = normalize(cross(surface.tangent.xyz, worldNormal));
+        return float3(dot(tangent, v), dot(bitangent, v), dot(normal, v));
+    }
+
+    float3 LocalToWorld(float3 v, float3 tangent, float3 bitangent)
+    {
+        //float3 dpdu = float3(1, 0, 0);
+        //float3 dpdv = float3(0, 1, 0);
+        //CoordinateSystem(normal, dpdu, dpdv);
+        //float3 tangent = normalize(dpdu.xyz);
+        //float3 bitangent = normalize(cross(surface.tangent.xyz, worldNormal));
+        return tangent * v.x + bitangent * v.y + normal * v.z;
+    }
+};
+
 struct PathPayload
 {
-    float3 direction;
     int hitResult;
-    int instanceID;
-    int instanceIndex;
-    //int isHitLightCheck;
-
+    uint instanceID;
+    uint bounce;
+    uint threadID;
+    //float coneWidth;
+    //float2 barycentrics;
+    //float hitT;
+    RayCone rayCone;
     HitSurface hitSurface;
-    Material  material;
+    //Material  material;
 };
 
 typedef BuiltInTriangleIntersectionAttributes AttributeData;
@@ -95,7 +145,8 @@ typedef BuiltInTriangleIntersectionAttributes AttributeData;
 RaytracingAccelerationStructure _AccelerationStructure;
 
 RWStructuredBuffer<RNG>    _RNGs;
-RWTexture2D<half4>  _RayConeGBuffer;
+Texture2D<half4>  _RayConeGBuffer;
+StructuredBuffer<InstanceTransform> _InstanceTransforms;
 
 float2 ConcentricSampleDisk(float2 u)
 {

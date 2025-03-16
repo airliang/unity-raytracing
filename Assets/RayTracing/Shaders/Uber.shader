@@ -159,17 +159,30 @@ Shader "RayTracing/Uber"
             [shader("closesthit")]
             void ClosestHitShader(inout PathPayload payLoad : SV_RayPayload, AttributeData attributeData : SV_IntersectionAttributes)
             {
-                //if (payLoad.isHitLightCheck > 0)
-                //{
-                //    payLoad.hitResult = HIT_MESH;
-                //    return;
-                //}
                 uint primIndex = PrimitiveIndex();
-                payLoad.hitSurface = GetHitSurface(primIndex, -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
-                //payLoad.hitSurface.lightIndex = -1;
+                float hitT = RayTCurrent();
+                float3 direction = WorldRayDirection();
+                float3 hitPos = WorldRayOrigin() + direction * hitT;
+
+                Interaction intersect = GetHitInteraction(primIndex, attributeData.barycentrics, WorldRayDirection(), hitPos,
+                    ObjectToWorld3x4(), WorldToObject3x4());
+                //payLoad.hitSurface = GetHitSurface(primIndex, attributeData.barycentrics, ObjectToWorld3x4(), WorldToObject3x4());
+    
+                TextureSampleInfo texLod;
+                texLod.cosine = dot(intersect.wo, intersect.normal);
+    
+                //texLod.coneWidth = payLoad.bounce == 0 ? _CameraConeSpreadAngle * hitT : payLoad.coneWidth;
+                texLod.screenSpaceArea = intersect.screenSpaceArea;
+                texLod.uvArea = intersect.uvArea;
+                texLod.uv = intersect.uv;
+                float mipmap = ComputeTextureLOD(texLod);
+                float4 texColor = _MainTex.SampleLevel(s_linear_repeat_sampler, TRANSFORM_TEX(intersect.uv, _MainTex), mipmap);
+    
+                payLoad.hitSurface = ConvertFromInteraction(intersect);
+    
                 Material material = (Material) 0;
                 material.materialType = _MaterialType;
-                material.kd = _BaseColor.rgb;
+                material.kd = _BaseColor.rgb;// * texColor.rgb;
                 material.ks = _GlossySpecularColor.rgb;
                 material.fresnelType = _FresnelType;
                 material.k = _k;
@@ -179,9 +192,9 @@ Shader "RayTracing/Uber"
                 material.anisotropy = _roughnessV;
                 //payLoad.primitiveID = primIndex;
                 payLoad.hitResult = HIT_MESH;
-                //payLoad.isHitLightCheck = 0;
-                payLoad.material = material;
-                payLoad.instanceID = -1;
+
+                _Materials[payLoad.threadID] = material;
+                payLoad.instanceID = InstanceID();
 
             }
 

@@ -41,6 +41,16 @@ float BalanceHeuristic(int nf,
     return (nf * f_PDF) / (nf * f_PDF + ng * g_PDF);
 }
 
+uint GetLightIndex(uint instanceId)
+{
+    return 0x0000ffff & (instanceId >> 16);
+}
+
+uint GetInstanceIndex(uint instanceId)
+{
+    return 0x0000ffff & instanceId;
+}
+
 struct PathVertex
 {
     float3 wi;
@@ -49,12 +59,6 @@ struct PathVertex
     int    found;
     HitSurface nextHit;
     Material nextMaterial;
-};
-
-struct RayCone
-{
-    float spreadAngle;
-    float width;
 };
 
 RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)
@@ -67,10 +71,6 @@ RayCone Propagate(RayCone preCone, float surfaceSpreadAngle, float hitT)
 
 RayCone ComputeRayCone(RayCone preCone, float distance, float pixelSpreadAngle)
 {
-    //RayCone rayCone;
-    //rayCone.width = preSpreadAngle * distance;
-    //rayCone.spreadAngle = lastSpreadAngle;
-    //float gamma = cameraConeSpreadAngle;
     return Propagate(preCone, pixelSpreadAngle, distance);
 }
 
@@ -137,58 +137,144 @@ RayDesc SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
     return ray;
 }
 
-HitSurface GetHitSurface(uint primIndex, float3 wo, AttributeData attributeData, float3x4 localToWorld, float3x4 worldToLocal)
+Interaction GetHitInteraction(uint primIndex, float2 barycentrics, float3 direction, float3 hitPos, 
+    float3x4 objectToWorld, float3x4 worldToLocal)
 {
-    HitSurface surface = (HitSurface)0;
-    float3 barycentrics = float3(1 - attributeData.barycentrics.x - attributeData.barycentrics.y,
-        attributeData.barycentrics.x, attributeData.barycentrics.y);
+    Interaction interaction = (Interaction)0;
+
+    float3 bary = float3(1 - barycentrics.x - barycentrics.y,
+        barycentrics.x, barycentrics.y);
 
     uint3 triangleIndices = UnityRayTracingFetchTriangleIndices(primIndex);
     float2 uv0 = UnityRayTracingFetchVertexAttribute2(triangleIndices.x, kVertexAttributeTexCoord0);
     float2 uv1 = UnityRayTracingFetchVertexAttribute2(triangleIndices.y, kVertexAttributeTexCoord0);
     float2 uv2 = UnityRayTracingFetchVertexAttribute2(triangleIndices.z, kVertexAttributeTexCoord0);
-    
-    //float3 pos0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributePosition);
-    //float3 pos1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributePosition);
-    //float3 pos2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributePosition);
+
+    float3 p0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributePosition);
+    float3 p1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributePosition);
+    float3 p2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributePosition);
 
     float3 normal0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributeNormal);
     float3 normal1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributeNormal);
     float3 normal2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributeNormal);
 
-    float2 uv = uv0 * barycentrics.x + uv1 * barycentrics.y + uv2 * barycentrics.z;
+    interaction.uv = uv0 * bary.x + uv1 * bary.y + uv2 * bary.z;
 
+    p0 = mul(objectToWorld, float4(p0.xyz, 1.0)).xyz;
+    p1 = mul(objectToWorld, float4(p1.xyz, 1.0)).xyz;
+    p2 = mul(objectToWorld, float4(p2.xyz, 1.0)).xyz;
     //surface.uv = uv;
     //float3 hitPos = float3(pos0 * uv.x + pos1 * uv.y + pos2 * (1.0 - uv.x - uv.y));
 
-    float3 origin = WorldRayOrigin();
-    float3 direction = WorldRayDirection();
-    surface.hitT = RayTCurrent();
-    float3 positionWS = origin + direction * surface.hitT;
+    //float3 origin = WorldRayOrigin();
+    //float3 direction = WorldRayDirection();
+    //surface.hitT = hitT;
+    float3 positionWS = hitPos;
 
-    float3 normal = normalize(normal0 * uv.x + normal1 * uv.y + normal2 * (1.0 - uv.x - uv.y));
+    float3 normal = normalize(normal0 * bary.x + normal1 * bary.y + normal2 * bary.z);
     float3 worldNormal = normalize(mul(normal, (float3x3)worldToLocal));
-    //hitPos = mul(localToWorld, hitPos);
+
     float3 dpdu = float3(1, 0, 0);
     float3 dpdv = float3(0, 1, 0);
     CoordinateSystem(worldNormal, dpdu, dpdv);
-    surface.tangent.xyz = normalize(dpdu.xyz);
-    surface.bitangent.xyz = normalize(cross(surface.tangent.xyz, worldNormal));
+    interaction.tangent.xyz = normalize(dpdu.xyz);
+    interaction.bitangent.xyz = normalize(cross(interaction.tangent.xyz, worldNormal));
+    interaction.position = positionWS;
+    interaction.wo = -direction;
+    interaction.normal = worldNormal;
+    interaction.uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
+
+    float4 v0Screen = mul(_WorldToRaster, float4(p0, 1));
+    float4 v1Screen = mul(_WorldToRaster, float4(p1, 1));
+    float4 v2Screen = mul(_WorldToRaster, float4(p2, 1));
+    v0Screen /= v0Screen.w;
+    v1Screen /= v1Screen.w;
+    v2Screen /= v2Screen.w;
+
+    interaction.screenSpaceArea = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz));
+
+    return interaction;
+}
+
+HitSurface ConvertFromInteraction(Interaction isect)
+{
+    HitSurface surface = (HitSurface)0;
+    surface.position = isect.position;
+    surface.normal = isect.normal;
+    surface.wo = isect.WorldToLocal(isect.wo);
+    return surface;
+}
+
+HitSurface GetHitSurface(uint primIndex, float2 barycentrics, float3 direction, float3 hitPos, 
+    float3x4 objectToWorld, float3x4 worldToLocal, out float2 uv)
+{
+    HitSurface surface = (HitSurface)0;
+    float3 bary = float3(1 - barycentrics.x - barycentrics.y,
+        barycentrics.x, barycentrics.y);
+
+    uint3 triangleIndices = UnityRayTracingFetchTriangleIndices(primIndex);
+    float2 uv0 = UnityRayTracingFetchVertexAttribute2(triangleIndices.x, kVertexAttributeTexCoord0);
+    float2 uv1 = UnityRayTracingFetchVertexAttribute2(triangleIndices.y, kVertexAttributeTexCoord0);
+    float2 uv2 = UnityRayTracingFetchVertexAttribute2(triangleIndices.z, kVertexAttributeTexCoord0);
+
+    float3 p0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributePosition);
+    float3 p1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributePosition);
+    float3 p2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributePosition);
+
+    float3 normal0 = UnityRayTracingFetchVertexAttribute3(triangleIndices.x, kVertexAttributeNormal);
+    float3 normal1 = UnityRayTracingFetchVertexAttribute3(triangleIndices.y, kVertexAttributeNormal);
+    float3 normal2 = UnityRayTracingFetchVertexAttribute3(triangleIndices.z, kVertexAttributeNormal);
+
+    uv = uv0 * bary.x + uv1 * bary.y + uv2 * bary.z;
+
+    p0 = mul(objectToWorld, float4(p0.xyz, 1.0)).xyz;
+    p1 = mul(objectToWorld, float4(p1.xyz, 1.0)).xyz;
+    p2 = mul(objectToWorld, float4(p2.xyz, 1.0)).xyz;
+    //surface.uv = uv;
+    //float3 hitPos = float3(pos0 * uv.x + pos1 * uv.y + pos2 * (1.0 - uv.x - uv.y));
+
+    //float3 origin = WorldRayOrigin();
+    //float3 direction = WorldRayDirection();
+    //surface.hitT = hitT;
+    float3 positionWS = hitPos;
+
+    float3 normal = normalize(normal0 * bary.x + normal1 * bary.y + normal2 * bary.z);
+    float3 worldNormal = normalize(mul(normal, (float3x3)worldToLocal));
+
+    //float3 dpdu = float3(1, 0, 0);
+    //float3 dpdv = float3(0, 1, 0);
+    //CoordinateSystem(worldNormal, dpdu, dpdv);
+    //surface.tangent.xyz = normalize(dpdu.xyz);
+    //surface.bitangent.xyz = normalize(cross(surface.tangent.xyz, worldNormal));
     surface.position = positionWS;
-    surface.wo = wo;
+    surface.wo = -direction;
     surface.normal = worldNormal;
+    float uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
+
+    float4 v0Screen = mul(_WorldToRaster, float4(p0, 1));
+    float4 v1Screen = mul(_WorldToRaster, float4(p1, 1));
+    float4 v2Screen = mul(_WorldToRaster, float4(p2, 1));
+    v0Screen /= v0Screen.w;
+    v1Screen /= v1Screen.w;
+    v2Screen /= v2Screen.w;
+    float screenSpaceArea = length(cross(v2Screen.xyz - v0Screen.xyz, v1Screen.xyz - v0Screen.xyz));
 
     return surface;
 }
 
-float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out PathVertex pathVertex)
+float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
     pathVertex = (PathVertex)0;
-    BSDFSample bsdfSample = SampleMaterialBRDF(material, hitSurface, rng);
+    BSDFSample bsdfSample = SampleMaterialBRDF(material, hitSurface.wo, rng);
 
     float scatteringPdf = bsdfSample.pdf;
-    float3 wi = hitSurface.LocalToWorld(bsdfSample.wi);
+    float3 dpdu = float3(1, 0, 0);
+    float3 dpdv = float3(0, 1, 0);
+    CoordinateSystem(hitSurface.normal, dpdu, dpdv);
+    float3 tangent = normalize(dpdu);
+    float3 bitangent = normalize(cross(tangent, hitSurface.normal));
+    float3 wi = hitSurface.LocalToWorld(bsdfSample.wi, tangent, bitangent);
     //return normalize(wi);
     float3 f = bsdfSample.reflectance * abs(dot(wi, hitSurface.normal));
 
@@ -200,10 +286,11 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
 
         PathPayload payLoad;
 
-        payLoad.direction = ray.Direction;
+        //payLoad.direction = ray.Direction;
         //payLoad.isHitLightCheck = 0;
         payLoad.instanceID = -1;
         payLoad.hitResult = HIT_MISS;
+        payLoad.threadID = threadId;
 
         TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
 
@@ -211,11 +298,11 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, inout RNG rng, out Pat
         {
             pathVertex.found = 1;
             pathVertex.nextHit = payLoad.hitSurface;
-            pathVertex.nextMaterial = payLoad.material;
+            pathVertex.nextMaterial = _Materials[threadId];//payLoad.material;
             
             if (payLoad.hitResult == HIT_LIGHT)
             {
-                int lightIndex = payLoad.instanceID;
+                int lightIndex = GetLightIndex(payLoad.instanceID);
                 AreaLight hitLight = _Lights[lightIndex];
                 float lightSourcePmf = LightSourcePmf(lightIndex);
                 lightPdf = AreaLightPdf(hitLight) * lightSourcePmf;
@@ -248,10 +335,14 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
 
     if (!IsBlack(Li))
     {
-        //ShadowRay shadowRay = (ShadowRay)0;
+        float3 dpdu = float3(1, 0, 0);
+        float3 dpdv = float3(0, 1, 0);
+        CoordinateSystem(surface.normal, dpdu, dpdv);
+        float3 tangent = normalize(dpdu);
+        float3 bitangent = normalize(cross(tangent, surface.normal));
 
-        float3 wiLocal = surface.WorldToLocal(wi);
-        float3 woLocal = surface.WorldToLocal(surface.wo.xyz);
+        float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
+        float3 woLocal = surface.wo;//surface.WorldToLocal(surface.wo.xyz, tangent, bitangent);
         float scatteringPdf = 0;
 
         float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
@@ -260,7 +351,7 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
             RayDesc ray = SpawnRay(surface.position, samplePointOnLight - surface.position, surface.normal, 1.0 - ShadowEpsilon);
             PathPayload payLoad;
 
-            payLoad.direction = ray.Direction;
+            //payLoad.direction = ray.Direction;
             payLoad.instanceID = -1;
             //payLoad.isHitLightCheck = 0;
             payLoad.hitResult = HIT_MISS;
@@ -282,15 +373,15 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
     return ld;
 }
 
-float3 EstimateDirectLighting(HitSurface hitSurface, Material material, inout RNG rng, out PathVertex pathVertex, bool breakPath)
+float3 EstimateDirectLighting(HitSurface hitSurface, Material material, uint threadId, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
 {
     breakPath = false;
     float lightSourcePdf = 1.0;
-    int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);//SampleLightSource(rng, lightSourcePdf, lightIndex);
+    int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);
     AreaLight light = _Lights[lightIndex];
     pathVertex = (PathVertex)0;
     float3 ld = MIS_ShadowRay(light, hitSurface, material, lightSourcePdf, rng);
-    ld += MIS_BSDF(hitSurface, material, rng, pathVertex);
+    ld += MIS_BSDF(hitSurface, material, threadId, rng, pathVertex);
 
     if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0)
     {
@@ -300,18 +391,20 @@ float3 EstimateDirectLighting(HitSurface hitSurface, Material material, inout RN
     return ld;
 }
 
-float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
+float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
 {
     float3 li = 0;
     float3  beta = 1;
     PathVertex pathVertex = (PathVertex)0;
     PathPayload payLoad;
-    payLoad.direction = ray.Direction.xyz;
+    //payLoad.direction = ray.Direction.xyz;
     payLoad.instanceID = -1;
+    payLoad.threadID = threadId;
     //payLoad.isHitLightCheck = 0;
     payLoad.hitResult = 0;
     HitSurface hitCur;
     Material material;
+    RayCone rayCone;
 
     for (int bounces = 0; bounces < _MaxDepth; bounces++)
     {
@@ -323,7 +416,7 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
             if (foundIntersect)
             {
                 hitCur = payLoad.hitSurface;
-                material = payLoad.material;
+                material = _Materials[threadId];//payLoad.material;
             }
         }
         else
@@ -333,9 +426,9 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
         
         if (foundIntersect)
         {
-            if (bounces == 0)
+            if (bounces == 0 && payLoad.hitResult == HIT_LIGHT)
             {
-                int lightIndex = payLoad.instanceID;
+                int lightIndex = GetLightIndex(payLoad.instanceID);
                 if (lightIndex >= 0)
                 {
                     AreaLight light = _Lights[lightIndex];
@@ -351,23 +444,21 @@ float3 PathLi(RayDesc ray, uint2 id, inout RNG rng)
             if (bounces == 0)
             {
                 surfaceBeta.y = _CameraConeSpreadAngle + surfaceBeta.x;
-                hitCur.coneWidth = _CameraConeSpreadAngle * hitCur.hitT;
+                //hitCur.coneWidth = _CameraConeSpreadAngle * hitCur.hitT;
             }
             else
             {
-                RayCone rayCone = ComputeRayCone(preCone, hitCur.hitT, surfaceBeta.r);
-                hitCur.coneWidth = rayCone.width;
+                //rayCone = ComputeRayCone(preCone, hitCur.hitT, surfaceBeta.r);
+                //hitCur.coneWidth = rayCone.width;
             }
 
-            
 
             bool breakPath = false;
-            float3 ld = EstimateDirectLighting(hitCur, material, rng, pathVertex, breakPath);
+            float3 ld = EstimateDirectLighting(hitCur, material, threadId, rng, pathVertex, breakPath);
             li += ld * beta;
 
             if (breakPath)
             {
-                //return pathVertex.wi;
                 break;
             }
 

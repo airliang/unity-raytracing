@@ -89,12 +89,16 @@ Shader "RayTracing/AreaLight"
                 payLoad.hitResult = HIT_LIGHT;
                 payLoad.instanceID = InstanceID();
                 //payLoad.primitiveID = PrimitiveIndex();
-                payLoad.hitSurface = GetHitSurface(PrimitiveIndex(), -payLoad.direction, attributeData, ObjectToWorld3x4(), WorldToObject3x4());
-                //payLoad.hitSurface.lightIndex = InstanceID();
-    
+                float hitT = RayTCurrent();
+                float3 direction = WorldRayDirection();
+                float3 hitPos = WorldRayOrigin() + direction * hitT;
+                Interaction intersect = GetHitInteraction(PrimitiveIndex(), attributeData.barycentrics, WorldRayDirection(), hitPos,
+                    ObjectToWorld3x4(), WorldToObject3x4());
+
+                payLoad.hitSurface = ConvertFromInteraction(intersect);
                 Material material = (Material) 0;
                 material.kd = 0;
-                payLoad.material = material;
+                _Materials[payLoad.threadID] = material;
             }
 
             [shader("anyhit")]
