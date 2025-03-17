@@ -171,7 +171,7 @@ Shader "RayTracing/Uber"
                 TextureSampleInfo texLod;
                 texLod.cosine = dot(intersect.wo, intersect.normal);
     
-                //texLod.coneWidth = payLoad.bounce == 0 ? _CameraConeSpreadAngle * hitT : payLoad.coneWidth;
+                texLod.coneWidth = payLoad.rayCone.width == 0 ? _CameraConeSpreadAngle * hitT : payLoad.rayCone.width;
                 texLod.screenSpaceArea = intersect.screenSpaceArea;
                 texLod.uvArea = intersect.uvArea;
                 texLod.uv = intersect.uv;
@@ -179,10 +179,11 @@ Shader "RayTracing/Uber"
                 float4 texColor = _MainTex.SampleLevel(s_linear_repeat_sampler, TRANSFORM_TEX(intersect.uv, _MainTex), mipmap);
     
                 payLoad.hitSurface = ConvertFromInteraction(intersect);
+                //payLoad.hitSurface.hitT = hitT;
     
                 Material material = (Material) 0;
                 material.materialType = _MaterialType;
-                material.kd = _BaseColor.rgb;// * texColor.rgb;
+                material.kd = _BaseColor.rgb * texColor.rgb;
                 material.ks = _GlossySpecularColor.rgb;
                 material.fresnelType = _FresnelType;
                 material.k = _k;

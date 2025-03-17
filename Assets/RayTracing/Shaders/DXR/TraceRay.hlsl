@@ -262,7 +262,7 @@ HitSurface GetHitSurface(uint primIndex, float2 barycentrics, float3 direction, 
     return surface;
 }
 
-float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, inout RNG rng, out PathVertex pathVertex)
+float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone rayCone, inout RNG rng, out PathVertex pathVertex)
 {
     float3 ld = float3(0, 0, 0);
     pathVertex = (PathVertex)0;
@@ -291,6 +291,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, inout R
         payLoad.instanceID = -1;
         payLoad.hitResult = HIT_MISS;
         payLoad.threadID = threadId;
+        payLoad.rayCone = rayCone;
 
         TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
 
@@ -373,7 +374,7 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
     return ld;
 }
 
-float3 EstimateDirectLighting(HitSurface hitSurface, Material material, uint threadId, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
+float3 EstimateDirectLighting(HitSurface hitSurface, Material material, uint threadId, RayCone rayCone, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
 {
     breakPath = false;
     float lightSourcePdf = 1.0;
@@ -381,7 +382,7 @@ float3 EstimateDirectLighting(HitSurface hitSurface, Material material, uint thr
     AreaLight light = _Lights[lightIndex];
     pathVertex = (PathVertex)0;
     float3 ld = MIS_ShadowRay(light, hitSurface, material, lightSourcePdf, rng);
-    ld += MIS_BSDF(hitSurface, material, threadId, rng, pathVertex);
+    ld += MIS_BSDF(hitSurface, material, threadId, rayCone, rng, pathVertex);
 
     if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0)
     {
@@ -404,14 +405,17 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
     payLoad.hitResult = 0;
     HitSurface hitCur;
     Material material;
-    RayCone rayCone;
+    half4 surfaceBeta = _RayConeGBuffer[id.xy];
+    RayCone rayCone = (RayCone)0;
+    rayCone.spreadAngle = _CameraConeSpreadAngle + surfaceBeta.x;
+    payLoad.rayCone = rayCone;
 
     for (int bounces = 0; bounces < _MaxDepth; bounces++)
     {
         bool foundIntersect = false;
         if (bounces == 0)
         {
-            TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
+            TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, ray, payLoad);
             foundIntersect = payLoad.hitResult > 0;
             if (foundIntersect)
             {
@@ -437,24 +441,24 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
                 }
             }
 
-            half4 surfaceBeta = _RayConeGBuffer[id.xy];
+            
             RayCone preCone;
             preCone.width = surfaceBeta.z;
             preCone.spreadAngle = surfaceBeta.y;
             if (bounces == 0)
             {
                 surfaceBeta.y = _CameraConeSpreadAngle + surfaceBeta.x;
+                //rayCone.coneWidth = preCone;
                 //hitCur.coneWidth = _CameraConeSpreadAngle * hitCur.hitT;
             }
             else
             {
-                //rayCone = ComputeRayCone(preCone, hitCur.hitT, surfaceBeta.r);
-                //hitCur.coneWidth = rayCone.width;
+                rayCone = ComputeRayCone(preCone, hitCur.hitT, surfaceBeta.r);
             }
 
 
             bool breakPath = false;
-            float3 ld = EstimateDirectLighting(hitCur, material, threadId, rng, pathVertex, breakPath);
+            float3 ld = EstimateDirectLighting(hitCur, material, threadId, rayCone, rng, pathVertex, breakPath);
             li += ld * beta;
 
             if (breakPath)

@@ -103,7 +103,7 @@ struct HitSurface
     //float  screenSpaceArea;
     //float  uvArea;
     //float  mip;
-    //float  hitT;
+    float  hitT;
 
     float3 WorldToLocal(float3 v, float3 tangent, float3 bitangent)
     {
@@ -130,7 +130,7 @@ struct PathPayload
 {
     int hitResult;
     uint instanceID;
-    uint bounce;
+    //uint bounce;
     uint threadID;
     //float coneWidth;
     //float2 barycentrics;
