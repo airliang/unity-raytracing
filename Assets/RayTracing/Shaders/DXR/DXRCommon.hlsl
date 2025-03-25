@@ -21,9 +21,12 @@ int _MinDepth;
 int _MaxDepth;
 int _LightsNum;
 int _DebugView;
+int _EnvironmentMapEnable;
 CBUFFER_END
 
 #define GLOBAL_RESOURCE(type, name, reg) type name : register(reg, space1);
+
+#define _ENVIRONMENT_MAP_ENABLE _EnvironmentMapEnable == 1
 
 struct CameraSample
 {
@@ -39,12 +42,6 @@ struct RayCone
 {
     float spreadAngle;
     float width;
-};
-
-struct InstanceTransform
-{
-    float4x4 localToWorld;
-    float4x4 worldToLocal;
 };
 
 #define HIT_MISS 0
@@ -64,7 +61,6 @@ struct Material
     float3 eta;
     float3 k;             //metal material absorption
     float fresnelType;
-    //float4 albedo_ST;
 };
 
 struct Interaction
@@ -146,7 +142,6 @@ RaytracingAccelerationStructure _AccelerationStructure;
 
 RWStructuredBuffer<RNG>    _RNGs;
 Texture2D<half4>  _RayConeGBuffer;
-StructuredBuffer<InstanceTransform> _InstanceTransforms;
 
 float2 ConcentricSampleDisk(float2 u)
 {

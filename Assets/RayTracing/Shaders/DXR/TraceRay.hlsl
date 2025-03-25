@@ -6,6 +6,7 @@
 #include "UnityRayTracingMeshUtils.cginc"
 #include "materials.hlsl"
 #include "sampleAreaLights.hlsl"
+#include "environment_lighting.hlsl"
 
 float origin() { return 1.0f / 32.0f; }
 float float_scale() { return 1.0f / 65536.0f; }
@@ -483,12 +484,17 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
         }
         else
         {
-            //sample enviroment map
-            //if (bounces == 0 && _EnvLightIndex >= 0)
-            //{
-            //    li += beta * EnviromentLightLe(ray.direction);
-            //}
-            
+            if (_ENVIRONMENT_MAP_ENABLE)
+            {
+                //sample enviroment map
+                if (bounces == 0)
+                {
+                    li += EnviromentLightLe(ray.Direction);
+                }
+            }
+            else
+                li += float3(1, 0, 0);
+    
             break;
         }
         hitCur = pathVertex.nextHit;

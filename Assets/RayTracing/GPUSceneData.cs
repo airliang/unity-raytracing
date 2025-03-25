@@ -60,7 +60,7 @@ class EnviromentLight : LightInstance
 
     //public Texture2D envmap;
     public Distribution2D envmapDistributions;
-
+    public float rotation;
     //just for test
     //public  ComputeBuffer computeBuffer;
 
@@ -554,6 +554,7 @@ public class GPUSceneData
             else if (skyBoxMaterial.shader.name == "Skybox/Panoramic" || skyBoxMaterial.shader.name == "RayTracing/SkyboxHDR")
             {
                 envLight.textureRadiance = skyBoxMaterial.GetTexture("_MainTex");
+                envLight.rotation = skyBoxMaterial.GetFloat("_Rotation");
                 envLight.CreateDistributions();
             }
             if (envLight.textureRadiance == null)
@@ -789,6 +790,7 @@ public class GPUSceneData
         {
             cs.SetTexture(kernel, "_LatitudeLongitudeMap", envLight.textureRadiance);
             cs.SetInt("enviromentTextureMask", 1);
+            cs.SetFloat("_EnvmapRotation", envLight.rotation);
         }
         else
         {

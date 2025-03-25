@@ -75,7 +75,7 @@ float3 EnviromentLightLe(float3 dir)
 {
 	if (enviromentTextureMask == 1)
 	{
-		float3 vertex = RotateAroundYInDegrees(normalize(dir), _EnvmapRotation);
+		float3 vertex = RotateAroundYInDegrees(normalize(dir), -_EnvmapRotation);
 		float2 uv = DirectionToPolar(vertex);
 		float3 col = SampleEnviromentLight(uv);
 		return col.rgb;
