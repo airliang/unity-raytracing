@@ -1,9 +1,10 @@
 # unity-raytracing
-GPU Raytracing renderer which runs in hlsl compute shader in unity.
-This project is implemented by pure hlsl vertex shader, fragment shader and compute shader in Unity, not using any raytracing shaders.
+GPU Raytracing renderer which runs in both hlsl compute shader and DXR raytracing shader in unity.
+This project is implemented by hlsl vertex shader, fragment shader, compute shader and raytracing shader in Unity.
 ## Features
 - Megakernel path tracing
 - Wavefront path tracing
+- DXR path tracing
 - Multiple importance sampling
 - Physical Base Materials
 - Split BVH acceleration structure by radeonray
