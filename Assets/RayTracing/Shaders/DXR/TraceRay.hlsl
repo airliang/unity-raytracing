@@ -314,6 +314,15 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone
                 }
             }       
         }
+        else
+        {
+            if (_ENVIRONMENT_MAP_ENABLE)
+            {
+                li = EnviromentLightLe(wi);
+                float lightSourcePmf = LightSourcePmf(0);
+                lightPdf = EnvLightLiPdf(wi) * lightSourcePmf;
+            }
+        }
         
         float weight = bsdfSample.IsSpecular() ? 1 : PowerHeuristic(1, scatteringPdf, 1, lightPdf);
         ld = f * li * weight / scatteringPdf;

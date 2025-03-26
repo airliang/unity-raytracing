@@ -879,7 +879,7 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalInt(DXRPathTracingParam._FrameIndex, framesNum);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MinDepth, _rayTracingData.MinDepth);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MaxDepth, _rayTracingData.MaxDepth);
-            cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count);
+            cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count + (envLight != null ? 1 : 0));
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._RNGs, RNGBuffer);
             cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
