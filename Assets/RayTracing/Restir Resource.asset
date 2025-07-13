@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8a83a256b655ee49a3dff6c10fc4b20, type: 3}
+  m_Name: Restir Resource
+  m_EditorClassIdentifier: 
+  GenerateSamples: {fileID: 4807578003741378534, guid: cb487396bdadbd84687f006c765802d7, type: 3}
+  SpatialReuse: {fileID: 7200000, guid: 366a2bfe9b88f1f4485dc9c0a990c484, type: 3}

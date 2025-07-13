@@ -44,6 +44,7 @@ public class Raytracing : MonoBehaviour
     public WavefrontResource wavefrontResource;
     public MegaKernelResource megaResource;
     public DXRPTResource dxrPTResource;
+    public RestirResource restirResource;
     private Camera cameraComponent;
     public Material _BlitMaterial;
     public Shader _RayConeGBuffer;

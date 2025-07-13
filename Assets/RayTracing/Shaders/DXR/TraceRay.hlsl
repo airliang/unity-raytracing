@@ -319,7 +319,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone
             if (_ENVIRONMENT_MAP_ENABLE)
             {
                 li = EnviromentLightLe(wi);
-                float lightSourcePmf = LightSourcePmf(0);
+                float lightSourcePmf = _EnvironmentLightPmf;
                 lightPdf = EnvLightLiPdf(wi) * lightSourcePmf;
             }
         }

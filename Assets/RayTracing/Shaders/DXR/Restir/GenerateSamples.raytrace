@@ -1,0 +1,121 @@
+
+#include "restir_common.hlsl"
+
+#pragma max_recursion_depth 1
+RWTexture2D<float4> _Output;
+RWStructuredBuffer<ReservoirSample> _ReservoirSamples;
+StructuredBuffer<ReservoirSample> _TemporalReuseSamples;
+
+void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG rng, out ReservoirSample outputSample)
+{
+    ReservoirSample candidates[M];
+    float weight[M];
+    float pdfs[M];
+    float3 dpdu = float3(1, 0, 0);
+    float3 dpdv = float3(0, 1, 0);
+    CoordinateSystem(surface.normal, dpdu, dpdv);
+    float3 tangent = normalize(dpdu);
+    float3 bitangent = normalize(cross(tangent, surface.normal)); 
+    float3 woLocal = surface.wo;
+
+    float weightSum = 0;
+    float pdfSum = 0;
+    for (int i = 0; i < M; ++i)
+    {
+        candidates[i] = (ReservoirSample)0;
+        float lightSourcePdf = 1.0;
+        int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);
+        AreaLight light = _Lights[lightIndex];
+
+        float3 wi;
+        float lightPdf = 0;
+        float3 samplePointOnLight;
+        float3 ld = float3(0, 0, 0);
+        float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight);
+        lightPdf *= lightSourcePdf;
+
+        float scatteringPdf = 0;
+        float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
+        float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
+        weight[i] = 0;
+        if (!IsBlack(f) && scatteringPdf > 0)
+        {
+            candidates[i].targetFunction = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
+            candidates[i].position = samplePointOnLight;
+            weight[i] = Luminance(candidates[i].targetFunction / lightPdf);
+            pdfSum += lightPdf;
+        }
+
+        weightSum += weight[i];
+        pdfs[i] = lightPdf;
+    }
+
+    float rand = Get1D(rng);
+    int selectedIndex = 0;
+    float m = 0;
+    for (int i = 0; i < M; ++i)
+    {
+        if (rand < weight[i] / weightSum)
+        {
+            m = pdfs[i] / pdfSum;
+            selectedIndex = i;
+            break;
+        }
+    }
+
+    float W = 1.0f / candidates[selectedIndex].targetFunction * m;
+    outputSample.weightSum = W;
+    outputSample.position = surface.position;
+    outputSample.targetFunction = candidates[selectedIndex].targetFunction;
+}
+
+void TemporalReuse(uint threadId, inout RNG rng, ReservoirSample temporalSample, inout ReservoirSample outputSample)
+{
+
+    ReservoirSample sample = _TemporalReuseSamples[threadId];
+    outputSample = sample;
+
+    outputSample.weight = outputSample.weight / (outputSample.weight + temporalSample.weight); // Reduce weight for temporal reuse
+}
+
+[shader("raygeneration")]
+void GenerateSamples()
+{
+    uint2 dispatchIdx = DispatchRaysIndex().xy;
+    uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
+    RNG rng = GetRNG(threadId);
+    RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
+    PathPayload payLoad;
+    payLoad.instanceID = -1;
+    payLoad.threadID = threadId;
+    payLoad.hitResult = 0;
+
+    bool foundIntersect = false;
+
+    TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, rayDescriptor, payLoad);
+    foundIntersect = payLoad.hitResult > 0;
+    if (foundIntersect)
+    {
+        HitSurface hitCur = payLoad.hitSurface;
+        Material material = _Materials[threadId];//payLoad.material;
+
+        if (payLoad.hitResult == HIT_LIGHT)
+        {
+            int lightIndex = GetLightIndex(payLoad.instanceID);
+            if (lightIndex >= 0)
+            {
+                AreaLight light = _Lights[lightIndex];
+                float3 li = light.radiance;
+                
+                _Output[dispatchIdx] = float4(li, 1);
+            }
+        }
+        else
+        {
+            ReservoirSample outputSample = (ReservoirSample)0;
+            ResampleImportanceSampling(hitCur, material, rng, outputSample);
+            _ReservoirSamples[threadId] = outputSample;
+        }
+    }
+    WriteRNG(threadId, rng);
+}

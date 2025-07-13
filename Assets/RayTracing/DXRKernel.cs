@@ -12,6 +12,8 @@ public class DXRKernel : TracingKernel
     private const int k_MaxNumSubMeshes = 32;
     public RayTracingAccelerationStructure rtas = null;
     private RayTracingShader pathTracing = null;
+    private RayTracingShader generateReservoirSamples = null;
+    private ComputeShader spatialReuse = null;
     private MeshRenderer[] renderers = null;
     RayTracingSubMeshFlags[] m_SubMeshFlagArray = new RayTracingSubMeshFlags[k_MaxNumSubMeshes];
     Material gBufferMaterial = null;
@@ -56,6 +58,11 @@ public class DXRKernel : TracingKernel
     ComputeBuffer envLightConditionBuffer;
     ComputeBuffer envLightConditionFuncIntsBuffer;
 
+    ComputeBuffer reservoirSamplesBuffer;
+    ComputeBuffer temporalReuseSamplesBuffer;
+
+    const uint RESERVOIR_SAMPLE_SIZE = 32; //32 bytes for each reservoir sample
+
     public struct GPUAreaLight
     {
         public int distributionDiscriptIndex;
@@ -94,6 +101,14 @@ public class DXRKernel : TracingKernel
         public int   lightIndex;
         public float fresnelType;
         public Vector4 albedo_ST;
+    }
+
+    public struct GPUReservoirSample
+    {
+        public Vector3 position; //the position of the sample in world space
+        public float targetFunction;
+        public float weightSum;
+        public float weight;
     }
 
     public struct GPUInstanceTransform
@@ -147,6 +162,10 @@ public class DXRKernel : TracingKernel
         public static int _FilterDomain = -1;
         public static int _FilterFuncInt = -1;
         public static int _EnvironmentMapEnable = -1;
+        public static int _EnvironmentLightPmf = -1;
+
+        public static int _ReservoirSamples = -1;
+        public static int _TemporalReuseSamples = -1;
     }
 
     public DXRKernel(DXRPTResource resourceData)
@@ -206,6 +225,10 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._FilterDomain = Shader.PropertyToID("_FilterDomain");
         DXRPathTracingParam._FilterFuncInt = Shader.PropertyToID("_FilterFuncInt");
         DXRPathTracingParam._EnvironmentMapEnable = Shader.PropertyToID("_EnvironmentMapEnable");
+        DXRPathTracingParam._EnvironmentLightPmf = Shader.PropertyToID("_EnvironmentLightPmf");
+
+        DXRPathTracingParam._ReservoirSamples = Shader.PropertyToID("_ReservoirSamples");
+        DXRPathTracingParam._TemporalReuseSamples = Shader.PropertyToID("_TemporalReuseSamples");
     }
 
     public int GetCurrentSPPCount()
@@ -223,6 +246,30 @@ public class DXRKernel : TracingKernel
         return null;
     }
 
+    private void InitRestir()
+    {
+        if (reservoirSamplesBuffer == null)
+        {
+            reservoirSamplesBuffer = new ComputeBuffer(_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height,
+            Marshal.SizeOf(typeof(GPUReservoirSample)), ComputeBufferType.Structured);
+        }
+
+        if (temporalReuseSamplesBuffer == null)
+        {
+            temporalReuseSamplesBuffer = new ComputeBuffer(_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height,
+            Marshal.SizeOf(typeof(GPUReservoirSample)), ComputeBufferType.Structured);
+
+            GPUReservoirSample[] temporalReuses = new GPUReservoirSample[_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height];
+            for (int i = 0; i < temporalReuses.Length; i++)
+            {
+                temporalReuses[i].position = Vector3.zero;
+                temporalReuses[i].weightSum = 0;
+                temporalReuses[i].weight = 0;
+                temporalReuses[i].targetFunction = 0;
+            }
+            temporalReuseSamplesBuffer.SetData(temporalReuses);
+        }
+    }
 
     public void Release()
     {
@@ -248,6 +295,9 @@ public class DXRKernel : TracingKernel
         envLightMarginalBuffer?.Release();
         envLightConditionBuffer?.Release();
         envLightConditionFuncIntsBuffer?.Release();
+
+        reservoirSamplesBuffer?.Release();
+        temporalReuseSamplesBuffer?.Release();
     }
 
     class AreaLightInstance
@@ -356,8 +406,6 @@ public class DXRKernel : TracingKernel
                             meshTriangles[j * 3 + subMeshDescriptor.indexStart + 1] + vertexOffset, meshTriangles[j * 3 + subMeshDescriptor.indexStart + 2] + vertexOffset);
                         lightTriangles.Add(triangleIndex);
                     }
-
-                    
                 }
 
                 vertexOffset += lightMeshVertices.Count;
@@ -465,7 +513,6 @@ public class DXRKernel : TracingKernel
     void SetupEnviromentMap()
     {
         Material skyBoxMaterial = RenderSettings.skybox;
-        bool envmapEnable = false;
         if (skyBoxMaterial != null)
         {
             envLight = new EnviromentLight();
@@ -488,13 +535,10 @@ public class DXRKernel : TracingKernel
             else
             {
             }
-
-            envmapEnable = true;
         }
         else
         {
             envLight.CreateDistributions();
-            envmapEnable = false;
         }
     }
 
@@ -730,6 +774,11 @@ public class DXRKernel : TracingKernel
 
             SetupMaterialData();
 
+            if (_rayTracingData.RestirEnable)
+            {
+                InitRestir();
+            }
+
             RaytracingStates.states = RaytracingStates.States.Rendering;
             yield return null;
         }
@@ -745,7 +794,7 @@ public class DXRKernel : TracingKernel
         if (filterMarginalBuffer == null)
         {
             List<Vector2> marginal = filter.GetGPUMarginalDistributions();
-            filterMarginalBuffer = new ComputeBuffer(marginal.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+            filterMarginalBuffer = new ComputeBuffer(marginal.Count, Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
 
             filterMarginalBuffer.SetData(marginal.ToArray());
         }
@@ -753,7 +802,7 @@ public class DXRKernel : TracingKernel
         if (filterConditionBuffer == null)
         {
             List<Vector2> conditional = filter.GetGPUConditionalDistributions();
-            filterConditionBuffer = new ComputeBuffer(filterSize.x * (filterSize.y + 1), System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+            filterConditionBuffer = new ComputeBuffer(filterSize.x * (filterSize.y + 1), Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
             filterConditionBuffer.SetData(conditional.ToArray());
         }
 
@@ -801,14 +850,14 @@ public class DXRKernel : TracingKernel
             if (envLightMarginalBuffer == null)
             {
                 List<Vector2> marginals = envLight.envmapDistributions.GetGPUMarginalDistributions();
-                envLightMarginalBuffer = new ComputeBuffer(marginals.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+                envLightMarginalBuffer = new ComputeBuffer(marginals.Count, Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
                 envLightMarginalBuffer.SetData(marginals);
             }
 
             if (envLightConditionBuffer == null)
             {
                 List<Vector2> conditions = envLight.envmapDistributions.GetGPUConditionalDistributions();
-                envLightConditionBuffer = new ComputeBuffer(conditions.Count, System.Runtime.InteropServices.Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
+                envLightConditionBuffer = new ComputeBuffer(conditions.Count, Marshal.SizeOf(typeof(Vector2)), ComputeBufferType.Structured);
                 envLightConditionBuffer.SetData(conditions);
             }
 
@@ -828,11 +877,13 @@ public class DXRKernel : TracingKernel
             cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._EnvmapConditions, envLightConditionBuffer);
             cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._EnvmapConditionFuncInts, envLightConditionFuncIntsBuffer);
             cmd.SetRayTracingVectorParam(pathTracing, DXRPathTracingParam._EnvMapDistributionSize, new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvironmentLightPmf, _rayTracingData._EnvironmentLightPmf);
         }
         else
         {
             //cmd.DisableShaderKeyword("_ENVIRONMENT_MAP_ENABLE");
             cmd.SetRayTracingIntParam(pathTracing, DXRPathTracingParam._EnvironmentMapEnable, 0);
+            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvironmentLightPmf, 0.0f);
         }
     }
 
@@ -848,8 +899,6 @@ public class DXRKernel : TracingKernel
         }
         SetupSceneCamera(camera);
 
-        
-
         InitRNGs();
 
         if (cmdDXR == null)
@@ -857,10 +906,11 @@ public class DXRKernel : TracingKernel
             cmdDXR = new CommandBuffer();
             cmdDXR.name = "DXR Pathtracing";
         }
-        
+
+
         cmdDXR.BeginSample("DXR Pathtracing");
         {
-            
+
             cmdDXR.SetRayTracingShaderPass(pathTracing, "RayTracing");
             cmdDXR.SetRayTracingAccelerationStructure(pathTracing, DXRPathTracingParam._AccelerationStructure, rtas);
             cmdDXR.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
@@ -893,8 +943,17 @@ public class DXRKernel : TracingKernel
 
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._Materials, materialBuffer);
 
-            cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
+            if (_rayTracingData.RestirEnable)
+            {
+                cmdDXR.SetGlobalBuffer(DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
+                cmdDXR.SetGlobalBuffer(DXRPathTracingParam._TemporalReuseSamples, temporalReuseSamplesBuffer);
+                cmdDXR.DispatchRays(generateReservoirSamples, "GenerateSamples", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
+            }
+            else
+                cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
         }
+
+            
         cmdDXR.EndSample("DXR Pathtracing");
         Graphics.ExecuteCommandBuffer(cmdDXR);
         cmdDXR.Clear();

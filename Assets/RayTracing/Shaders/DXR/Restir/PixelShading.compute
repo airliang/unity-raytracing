@@ -1,0 +1,24 @@
+#include "restir_common.hlsl"
+
+// Each #kernel tells which function to compile; you can have many kernels
+#pragma kernel CSMain
+
+
+RWTexture2D<float4> _Spectrums;
+RWTexture2D<float4> _Output;
+StructuredBuffer<ReservoirSample> _ReservoirSamples;
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    uint threadId = id.x + id.y * _ScreenSize.x;
+    float3 radiance = 
+    float3 spectrum = _Spectrums[id.xy];
+    float t = 1.0f / _FrameIndex;
+    float3 curSpectrum = lerp(spectrum, radiance, t);
+        //spectrum.rgb += radiance;
+    _Spectrums[id.xy] = float4(curSpectrum, 1);
+    //color = curSpectrum;
+    
+    _Output[id.xy] = float4(curSpectrum, 1);
+}

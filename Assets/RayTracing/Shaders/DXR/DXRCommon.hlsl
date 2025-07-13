@@ -22,6 +22,8 @@ int _MaxDepth;
 int _LightsNum;
 int _DebugView;
 int _EnvironmentMapEnable;
+float _EnvironmentLightPmf;
+float4 _ScreenSize;
 CBUFFER_END
 
 #define GLOBAL_RESOURCE(type, name, reg) type name : register(reg, space1);

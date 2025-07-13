@@ -103,7 +103,7 @@ int UniformSampleLightSource(float u, int nLightsNum, out float pmf)
 
 float LightSourcePmf(int lightIndex)
 {
-    return 1.0 / _LightsNum;
+    return (1.0 / _LightsNum) / (1.0 - _EnvironmentLightPmf);
 }
 
 float AreaLightPdf(AreaLight light)

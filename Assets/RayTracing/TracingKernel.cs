@@ -48,11 +48,14 @@ public class RaytracingData
     public float _Exposure = 1;
     public bool _EnviromentMapEnable = true;
     public bool _UniformSampleLight = false;
+    [Range(0f, 1f)]
+    public float _EnvironmentLightPmf = 0.5f;
     //public bool _UseBVHPlugin = true;
     public bool _SaveOutputTexture = false;
     //depth of field params
     public float _LensRadius = 0;
     public float _FocalLength = 1;
+    public bool RestirEnable = false;
 
     private RenderTexture outputTexture;
     private RenderTexture rayConeGBuffer;
