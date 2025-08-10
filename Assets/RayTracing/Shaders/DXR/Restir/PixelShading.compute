@@ -12,7 +12,9 @@ StructuredBuffer<ReservoirSample> _ReservoirSamples;
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     uint threadId = id.x + id.y * _ScreenSize.x;
-    float3 radiance = 
+    
+    ReservoirSample sample = _ReservoirSamples[threadId];
+    //float3 radiance = 
     float3 spectrum = _Spectrums[id.xy];
     float t = 1.0f / _FrameIndex;
     float3 curSpectrum = lerp(spectrum, radiance, t);

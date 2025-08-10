@@ -5,12 +5,32 @@
 RWTexture2D<float4> _Output;
 RWStructuredBuffer<ReservoirSample> _ReservoirSamples;
 StructuredBuffer<ReservoirSample> _TemporalReuseSamples;
+RWStructuredBuffer<HitSurface> _FirstHitSurfaces;
+
+void AddReservoirCandidate(inout ReservoirSample reservoir, inout RNG rng, float targetFunction, float candidatePdf, float3 lightPos, uint lightIndex)
+{
+    float weight = targetFunction / candidatePdf;
+    reservoir.numStreams += 1;
+    reservoir.weightSum += weight;
+    float w = (reservoir.weightSum) / (reservoir.numStreams * targetFunction);
+    //wether the candidate can replace the Reservoir Sample
+    float rand = Get1D(rng);
+    bool replaceSample = rand < (weight / reservoir.weightSum);
+    if (replaceSample)
+    {
+        reservoir.weight = w;
+        reservoir.targetFunction = targetFunction;
+        reservoir.position = lightPos;
+        reservoir.lightIndex = lightIndex;
+    }
+}
 
 void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG rng, out ReservoirSample outputSample)
 {
-    ReservoirSample candidates[M];
-    float weight[M];
-    float pdfs[M];
+    //ReservoirSample candidates[M];
+    // float weight[M];
+    // float pdfs[M];
+    outputSample = (ReservoirSample)0;
     float3 dpdu = float3(1, 0, 0);
     float3 dpdv = float3(0, 1, 0);
     CoordinateSystem(surface.normal, dpdu, dpdv);
@@ -20,9 +40,10 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
 
     float weightSum = 0;
     float pdfSum = 0;
+    float index = 0;
     for (int i = 0; i < M; ++i)
     {
-        candidates[i] = (ReservoirSample)0;
+        //candidates[i] = (ReservoirSample)0;
         float lightSourcePdf = 1.0;
         int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);
         AreaLight light = _Lights[lightIndex];
@@ -31,42 +52,65 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
         float lightPdf = 0;
         float3 samplePointOnLight;
         float3 ld = float3(0, 0, 0);
-        float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight);
+        float3 lightNormal;
+        float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight, lightNormal);
         lightPdf *= lightSourcePdf;
-
-        float scatteringPdf = 0;
         float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
+        float scatteringPdf = 0;
         float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
-        weight[i] = 0;
-        if (!IsBlack(f) && scatteringPdf > 0)
+        float phat = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
+        AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
+
+        if (lightPdf == 0)
         {
-            candidates[i].targetFunction = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
-            candidates[i].position = samplePointOnLight;
-            weight[i] = Luminance(candidates[i].targetFunction / lightPdf);
-            pdfSum += lightPdf;
+            outputSample.weightSum = 0;
         }
 
-        weightSum += weight[i];
-        pdfs[i] = lightPdf;
+        index += 1.0f;
+        // float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
+        // weight[i] = 0;
+        // if (!IsBlack(f) && scatteringPdf > 0)
+        // {
+        //     candidates[i].targetFunction = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
+        //     candidates[i].position = samplePointOnLight;
+        //     weight[i] = Luminance(candidates[i].targetFunction / lightPdf);
+        //     pdfSum += lightPdf;
+        // }
+
+        // weightSum += weight[i];
+        // pdfs[i] = lightPdf;
     }
 
-    float rand = Get1D(rng);
-    int selectedIndex = 0;
-    float m = 0;
-    for (int i = 0; i < M; ++i)
+    for (int i = 0; i < M_BSDF; ++i)
     {
-        if (rand < weight[i] / weightSum)
+        //sample bsdf wi
+        BSDFSample bsdfSample = SampleMaterialBRDF(material, surface.wo, rng);
+        float3 wi = surface.LocalToWorld(bsdfSample.wi, tangent, bitangent);
+        PathPayload payLoad = (PathPayload)0;
+        payLoad.instanceID = -1;
+        payLoad.hitResult = HIT_MISS;
+        payLoad.threadID = DispatchRaysIndex().x;
+        payLoad.rayCone = (RayCone)0;
+        RayDesc ray = SpawnRay(surface.position, wi, surface.normal, FLT_MAX);
+        TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, ray, payLoad);
+        if (payLoad.hitResult == HIT_LIGHT)
         {
-            m = pdfs[i] / pdfSum;
-            selectedIndex = i;
-            break;
+            int lightIndex = GetLightIndex(payLoad.instanceID);
+            AreaLight light = _Lights[lightIndex];
+            float lightPdf = 0;
+            float lightSourcePdf = 0;
+            float3 samplePointOnLight;
+            float3 ld = float3(0, 0, 0);
+            float3 lightNormal;
+            float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight, lightNormal);
+            lightPdf *= lightSourcePdf;
+            float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
+            float scatteringPdf = 0;
+            float3 f = bsdfSample.reflectance;
+            float phat = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
+            AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
         }
     }
-
-    float W = 1.0f / candidates[selectedIndex].targetFunction * m;
-    outputSample.weightSum = W;
-    outputSample.position = surface.position;
-    outputSample.targetFunction = candidates[selectedIndex].targetFunction;
 }
 
 void TemporalReuse(uint threadId, inout RNG rng, ReservoirSample temporalSample, inout ReservoirSample outputSample)
@@ -91,7 +135,7 @@ void GenerateSamples()
     payLoad.hitResult = 0;
 
     bool foundIntersect = false;
-
+    float3 li = 0;
     TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, rayDescriptor, payLoad);
     foundIntersect = payLoad.hitResult > 0;
     if (foundIntersect)
@@ -105,17 +149,62 @@ void GenerateSamples()
             if (lightIndex >= 0)
             {
                 AreaLight light = _Lights[lightIndex];
-                float3 li = light.radiance;
-                
-                _Output[dispatchIdx] = float4(li, 1);
+                li = light.radiance;
             }
         }
         else
         {
             ReservoirSample outputSample = (ReservoirSample)0;
             ResampleImportanceSampling(hitCur, material, rng, outputSample);
+
+            bool visible = TestRayVisibility(hitCur.position, outputSample.position, hitCur.normal, ShadowEpsilon);
+
+            if (!visible)
+            {
+                outputSample.weight = 0; // Reset if not visible
+                outputSample.weightSum = 0;
+                //li = 1;
+            }
+            else
+            {
+                li = material.kd;
+                // if (outputSample.weightSum > 0)
+                // {
+                //     AreaLight light = _Lights[outputSample.lightIndex];
+                //     li = material.kd; //outputSample.weightSum;//outputSample.targetFunction;//EvaluatePHat(hitCur, outputSample.position, 0, light.radiance, -rayDescriptor.Direction, material) * outputSample.weight;
+                //     if (isnan(outputSample.weightSum))
+                //     {
+                //         li = float3(0.0, 1, 1);
+                //     }
+                // }
+                
+                if (isnan(outputSample.weightSum))
+                {
+                    //li = float3(0.0, 1, 1);
+                }
+                // else if (outputSample.weightSum == 0.0)
+                // {
+                //     li = float3(0.5, 0, 0);
+                // }
+            }
+            
+            
             _ReservoirSamples[threadId] = outputSample;
         }
+
+        //_FirstHitSurfaces[threadId] = hitCur;
     }
+    else if (_ENVIRONMENT_MAP_ENABLE)
+    {
+        li += EnviromentLightLe(rayDescriptor.Direction);
+    }
+
+    _Output[dispatchIdx] = float4(li, 1);
     WriteRNG(threadId, rng);
+}
+
+[shader("miss")]
+void MissShader(inout PathPayload payLoad : SV_RayPayload)
+{
+    payLoad.hitResult = HIT_MISS;
 }

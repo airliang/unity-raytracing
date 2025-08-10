@@ -1,7 +1,8 @@
 #ifndef RESTIR_HLSL
 #define RESTIR_HLSL
 
-#define M 32
+#define M 1
+#define M_BSDF 0
 
 #include "../TraceRay.hlsl"
 
@@ -11,30 +12,31 @@ struct ReservoirSample
     float targetFunction;
     float weightSum;
     float weight;
+    uint  numStreams;
+    uint  lightIndex;
 };
 
-struct ReservoirOutSample
-{
-    float3 li;
-    float3 wi;
-    float2 padding;
-};
-
-
-//float3 EvaluatePHat(float3 worldPos, float3 surfaceNormal, float3 lightPos, float3 lightNormal, float3 wi, float3 lightEmission, inout RNG rng)
-//{
-//    float3 wi = lightPos - worldPos;
-//    if (dot(wi, surfaceNormal) < 0.0f) 
-//    {
-//        return float3(0.0f);
-//    }
-//
-//    
-//}
 
 float EvaluatePHat(float3 li, float3 f, float cos)
 {
     return Luminance(li * f * cos);
+}
+
+float3 EvaluatePHat(HitSurface hitSurface, float3 lightPos, float3 lightNormal, float3 li, float3 wi, Material material)
+{
+    float3 dpdu = float3(1, 0, 0);
+    float3 dpdv = float3(0, 1, 0);
+    CoordinateSystem(hitSurface.normal, dpdu, dpdv);
+    float3 tangent = normalize(dpdu);
+    float3 bitangent = normalize(cross(tangent, hitSurface.normal));
+    float3 woLocal = hitSurface.wo;
+    float3 wiLocal = hitSurface.WorldToLocal(wi, tangent, bitangent);
+    float scatteringPdf = 0;
+    float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
+    float3 w = lightPos - hitSurface.position;
+    float attenuation = dot(w, w);
+
+    return li * f * abs(dot(wi, hitSurface.normal)) / attenuation;
 }
 
 #endif

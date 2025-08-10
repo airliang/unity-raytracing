@@ -118,6 +118,11 @@ bool SameHemisphere(float3 w, float3 wp)
 	return w.z * wp.z > 0;
 }
 
+bool SameHemisphere(float cosIn, float cosOut)
+{
+    return sign(cosIn) == sign(cosOut);
+}
+
 //return the a point of triangle
 //p0 p1 p2 is the world position of a mesh
 float3 SamplePointOnTriangle(float3 p0, float3 p1, float3 p2, float2 u, out float3 normal, out float pdf)

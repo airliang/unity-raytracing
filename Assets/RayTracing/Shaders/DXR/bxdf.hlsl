@@ -53,6 +53,11 @@ float3 LambertBRDF(float3 wi, float3 wo, float3 R)
     return wo.z == 0 ? 0 : R * INV_PI;
 }
 
+float3 LambertBRDF(float cosIn, float cosOut, float3 R)
+{
+    return cosOut == 0 ? 0 : R * INV_PI;
+}
+
 //wi and wo must in local space
 float LambertPDF(float3 wi, float3 wo)
 {

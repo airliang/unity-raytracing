@@ -102,6 +102,7 @@ struct HitSurface
     //float  uvArea;
     //float  mip;
     float  hitT;
+    float2 padding;
 
     float3 WorldToLocal(float3 v, float3 tangent, float3 bitangent)
     {

@@ -31,26 +31,28 @@ StructuredBuffer<TriangleLight> _TriangleLights;
 StructuredBuffer<int3> _LightTriangles;
 StructuredBuffer<Vertex> _LightVertices;
 
-float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, AreaLight light, out float3 wi, out float3 position, out float attenuation)
+float3 SampleTriangleLight(float3 p0, float3 p1, float3 p2, float2 u, float3 litPoint, AreaLight light, out float3 wi, out float3 position, out float attenuation, out float3 lightNormal)
 {
-    float3 Li = 0;
+    //float3 Li = 0;
     float3 lightPointNormal;
     float triPdf = 0;
     position = SamplePointOnTriangle(p0, p1, p2, u, lightPointNormal, triPdf);
-    //pdf = triPdf;
-    wi = position - litPoint;
-    float wiLength = length(wi);
-    wi = normalize(wi);
-    float cos = dot(lightPointNormal, -wi);
-    float absCos = abs(cos);
-    attenuation = wiLength * wiLength / absCos;
-    if (isinf(attenuation) || wiLength == 0)
-    {
-        attenuation = 0;
-        return 0;
-    }
+    lightNormal = lightPointNormal;
+    attenuation = 1.0f;
+ 
+    //wi = position - litPoint;
+    //float wiLength = length(wi);
+    //wi = normalize(wi);
+    //float cos = dot(lightPointNormal, -wi);
+    //float absCos = abs(cos);
+    //attenuation = wiLength * wiLength / absCos;
+    //if (isinf(attenuation) || wiLength == 0)
+    //{
+    //    attenuation = 0;
+    //    return 0;
+    //}
 
-    return cos > 0 ? light.radiance : 0;
+    return light.radiance;//cos > 0 ? light.radiance : 0;
 }
 
 int SampleTriangleIndexOfLightPoint(float u, DistributionDiscript discript, StructuredBuffer<float2> distributions, out float pdf)
@@ -61,7 +63,7 @@ int SampleTriangleIndexOfLightPoint(float u, DistributionDiscript discript, Stru
 }
 
 float3 SampleLightRadiance(AreaLight light, float3 intersectPoint, inout RNG rng,
-    out float3 wi, out float lightPdf, out float3 lightPoint)
+    out float3 wi, out float lightPdf, out float3 lightPoint, out float3 lightNormal)
 {
     float u = Get1D(rng);
     float triPdf = 0;
@@ -83,10 +85,21 @@ float3 SampleLightRadiance(AreaLight light, float3 intersectPoint, inout RNG rng
     //float triangleArea = triLight.area;
     //lightPdf = triangleArea / light.area;
     float attenuation = 1.0;
-    float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), intersectPoint, light, wi, lightPoint, attenuation);
-    //lightPdf *= triPdf;
-    lightPdf = attenuation / light.area;
-    return Li;
+    float3 Li = SampleTriangleLight(p0, p1, p2, Get2D(rng), intersectPoint, light, wi, lightPoint, attenuation, lightNormal);
+    wi = lightPoint - intersectPoint;
+    attenuation = dot(wi, wi);
+    wi = normalize(wi);
+    float cos = dot(lightNormal, -wi);
+    float absCos = abs(cos);
+    if (isinf(attenuation) || absCos == 0)
+    {
+        lightPdf = 0;
+        return 0;
+    }
+    Li /= attenuation;
+    
+    lightPdf = /*attenuation*/1.0 / absCos;
+    return cos > 0 ? Li : 0;
 }
 
 int ImportanceSampleLightSource(float u, DistributionDiscript discript, StructuredBuffer<float2> discributions, out float pmf)
@@ -111,75 +124,4 @@ float AreaLightPdf(AreaLight light)
     float lightPdf = 1.0 / light.area;
     return lightPdf;
 }
-
-/*
-int SampleLightSource(float u, DistributionDiscript discript, StructuredBuffer<float2> discributions, out float pmf)
-{
-    //int index = 0;
-    //if (_UniformSampleLight)
-    //	index = UniformSampleLightSource(u, discript, pmf);
-    //else
-    //	index = ImportanceSampleLightSource(u, discript, discributions, pmf); //SampleDistribution1DDiscrete(rs.Get1D(threadId), 0, lightCount, pdf);
-
-    int index = UniformSampleLightSource(u, _LightsNum, pmf);
-    return index;
-}
-
-float UniformLightSourcePmf(int lightsNum)
-{
-    return 1.0 / lightsNum;
-}
-
-float ImportanceLightSourcePmf(int lightIndex, DistributionDiscript discript)
-{
-    return DiscretePdf(lightIndex, discript, _LightDistributions1D);
-}
-
-
-
-//float3 Light_Le(float3 wi, Light light)
-//{
-//    if (light.type == AreaLightType)
-//    {
-//        return light.radiance;
-//    }
-//    else if (light.type == EnvLightType)
-//    {
-//        return EnviromentLightLe(wi);
-//    }
-//    return 0;
-//}
-
-
-
-float3 UniformSampleLight(float3 hitPoint, inout RNG rng, out AreaLight light, out float3 samplePointOnLight, out float lightPdf)
-{
-    float u = Get1D(rng);
-    DistributionDiscript discript = _LightDistributionDiscripts[0];
-    float lightSourcePdf = 0;
-    int lightIndex = SampleLightSource(u, discript, _LightDistributions1D, lightSourcePdf);
-    //lightIndex = 0;
-    //lightSourcePdf = 0.5;
-    light = _Lights[lightIndex];
-
-    lightPdf = 0;
-    float3 wi;
-    float3 Li = SampleLightRadiance(light, hitPoint, rng, wi, lightPdf, samplePointOnLight);
-    lightPdf *= lightSourcePdf;
-    return Li;
-}
-
-AreaLight SampleLightSource(inout RNG rng, out float lightSourcePdf, out int lightIndex)
-{
-
-    //some error happen in SampleLightSource
-    float u = Get1D(rng);
-    DistributionDiscript discript = _LightDistributionDiscripts[0];
-    lightIndex = SampleLightSource(u, discript, _LightDistributions1D, lightSourcePdf);
-    //lightIndex = 0;
-    //lightSourcePdf = 0.5;
-    AreaLight light = _Lights[lightIndex];
-    return light;
-}
-*/
 #endif

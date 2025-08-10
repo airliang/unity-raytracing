@@ -138,6 +138,23 @@ RayDesc SpawnRay(float3 p, float3 direction, float3 normal, float tMax)
     return ray;
 }
 
+bool TestRayVisibility(RayDesc ray)
+{
+    PathPayload payLoad = (PathPayload)0;
+    payLoad.instanceID = -1;
+    payLoad.hitResult = HIT_MISS;
+    payLoad.threadID = DispatchRaysIndex().x;
+    payLoad.rayCone = (RayCone)0;
+    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
+    return payLoad.hitResult == HIT_MISS;
+}
+
+bool TestRayVisibility(float3 p, float3 end, float3 normal, float bias)
+{
+    RayDesc ray = SpawnRay(p, end - p, normal, 1.0f - bias);
+    return TestRayVisibility(ray);
+}
+
 Interaction GetHitInteraction(uint primIndex, float2 barycentrics, float3 direction, float3 hitPos, 
     float3x4 objectToWorld, float3x4 worldToLocal)
 {
@@ -341,7 +358,8 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
     float lightPdf = 0;
     float3 samplePointOnLight;
     float3 ld = float3(0, 0, 0);
-    float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight);
+    float3 lightNormal;
+    float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight, lightNormal);
     lightPdf *= lightSourcePdf;
 
     if (!IsBlack(Li))
@@ -501,8 +519,6 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
                     li += EnviromentLightLe(ray.Direction);
                 }
             }
-            else
-                li += float3(1, 0, 0);
     
             break;
         }
