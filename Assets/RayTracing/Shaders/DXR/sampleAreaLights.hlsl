@@ -1,6 +1,6 @@
 #ifndef SAMPLELIGHTS_HLSL
 #define SAMPLELIGHTS_HLSL
-
+#include "lighting_common.hlsl"
 #include "distributions.hlsl"
 #include "geometry.hlsl"
 

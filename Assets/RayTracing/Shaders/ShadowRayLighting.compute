@@ -1,8 +1,9 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
+#include "rtCommon.hlsl"
 #include "wavefrontQueues.hlsl"
 #include "bvhaccel.hlsl"
-uniform float2 rasterSize;
+//uniform float2 rasterSize;
 
 StructuredBuffer<uint> _RayQueueSizeBuffer;
 StructuredBuffer<uint> _ShadowRayQueue;
@@ -12,10 +13,10 @@ StructuredBuffer<ShadowRayQueueItem> _ShadowRayQueueItems;
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-	if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
 		return;
 
-	uint threadId = id.x + id.y * rasterSize.x;
+    uint threadId = id.x + id.y * _ScreenSize.x;
 	uint queueSize = _RayQueueSizeBuffer[SHADOW_RAY_QUEUE_INDEX];
 	if (threadId >= queueSize)
 		return;

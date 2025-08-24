@@ -1,6 +1,6 @@
 ﻿#ifndef GPU_SCENE_DATA
 #define GPU_SCENE_DATA
-
+#include "rtCommon.hlsl"
 #include "geometry.hlsl"
 #include "GPUStructs.hlsl"
 
@@ -16,16 +16,16 @@ StructuredBuffer<Light> lights;
 StructuredBuffer<float2> Distributions1D;
 StructuredBuffer<DistributionDiscript> DistributionDiscripts;
 
-cbuffer cb
-{
-	uniform int instBVHAddr;
-	uniform int bvhNodesNum;
-	uniform float worldRadius;
-	uniform float cameraConeSpreadAngle;
-	uniform matrix RasterToCamera;
-	uniform matrix CameraToWorld;
-	uniform matrix WorldToRaster;
-};
+//cbuffer cb
+//{
+//	uniform int _InstBVHAddr;
+//	uniform int _BVHNodesNum;
+//	uniform float _WorldRadius;
+//	uniform float cameraConeSpreadAngle;
+//	uniform matrix _RasterToCamera;
+//	uniform matrix _CameraToWorld;
+//	uniform matrix _WorldToRaster;
+//};
 
 void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction interaction)
 {
@@ -77,9 +77,9 @@ void ComputeSurfaceIntersection(HitInfo hitInfo, float3 wo, out Interaction inte
 	//interaction.triangleIndex = (vertexIndex0 - meshInst.vertexOffsetStart) / 3;//hitInfo.triangleIndexInMesh;
 	interaction.uvArea = length(cross(float3(uv2, 1) - float3(uv0, 1), float3(uv1, 1) - float3(uv0, 1)));
 
-	float4 v0Screen = mul(WorldToRaster, float4(p0, 1));
-	float4 v1Screen = mul(WorldToRaster, float4(p1, 1));
-	float4 v2Screen = mul(WorldToRaster, float4(p2, 1));
+	float4 v0Screen = mul(_WorldToRaster, float4(p0, 1));
+	float4 v1Screen = mul(_WorldToRaster, float4(p1, 1));
+	float4 v2Screen = mul(_WorldToRaster, float4(p2, 1));
 	v0Screen /= v0Screen.w;
 	v1Screen /= v1Screen.w;
 	v2Screen /= v2Screen.w;

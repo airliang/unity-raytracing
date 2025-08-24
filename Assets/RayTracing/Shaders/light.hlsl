@@ -15,7 +15,7 @@
 int   enviromentTextureMask;
 float3 enviromentColor;
 float3 enviromentColorScale;
-float2  envMapDistributionSize;
+float2  _EnvMapDistributionSize;
 float _EnvmapRotation;
 float _EnvMapDistributionInt;
 int   _EnvLightIndex;
@@ -27,9 +27,9 @@ bool  _EnvMapEnable;
 Texture2D _LatitudeLongitudeMap;
 SamplerState _LatitudeLongitudeMap_linear_repeat_sampler;
 //#ifdef _ENVMAP_ENABLE
-StructuredBuffer<float2> EnvmapMarginals;
-StructuredBuffer<float2> EnvmapConditions;
-StructuredBuffer<float>  EnvmapConditionFuncInts;
+StructuredBuffer<float2> _EnvmapMarginals;
+StructuredBuffer<float2> _EnvmapConditions;
+StructuredBuffer<float>  _EnvmapConditionFuncInts;
 //#endif
 
 float3 RotateAroundYInDegrees(float3 vertex, float degrees)
@@ -102,11 +102,11 @@ float EnvLightLiPdf(float3 wi)
 				return 0;
 			DistributionDiscript discript = (DistributionDiscript)0;
 			discript.start = 0;
-			discript.num = (int)envMapDistributionSize.y;
-			discript.unum = (int)envMapDistributionSize.x;
+			discript.num = (int)_EnvMapDistributionSize.y;
+			discript.unum = (int)_EnvMapDistributionSize.x;
 			discript.domain = float4(0, 1, 0, 1);
 			discript.funcInt = _EnvMapDistributionInt;
-			return Distribution2DPdf(uv, discript, EnvmapMarginals, EnvmapConditions) /
+			return Distribution2DPdf(uv, discript, _EnvmapMarginals, _EnvmapConditions) /
 				(2 * PI * PI * sinTheta);
 		}
 	}
@@ -137,14 +137,14 @@ float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
 	{
 		DistributionDiscript discript = (DistributionDiscript)0;
 		discript.start = 0;
-		discript.num = (int)envMapDistributionSize.y;
-		discript.unum = (int)envMapDistributionSize.x;
+		discript.num = (int)_EnvMapDistributionSize.y;
+		discript.unum = (int)_EnvMapDistributionSize.x;
 		discript.domain = float4(0, 1, 0, 1);
 		discript.funcInt = _EnvMapDistributionInt;
 		float mapPdf = 0;
 		pdf = 0;
 		wi = 0;
-		float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
+		float2 uv = Sample2DContinuous(u, discript, _EnvmapMarginals, _EnvmapConditions, _EnvmapConditionFuncInts, mapPdf);
 		if (mapPdf == 0)
 			return float3(0, 0, 0);
 		// Convert infinite light sample point to direction

@@ -15,7 +15,7 @@
 #define EnvmapUVView 7
 #define RNGView 8
 
-int debugView;
+//int debugView;
 
 
 uniform float cameraFar;
@@ -92,12 +92,12 @@ float2 ImportanceSampleEnvmapUV(float2 u)
     {
         DistributionDiscript discript = (DistributionDiscript)0;
         discript.start = 0;
-        discript.num = (int)envMapDistributionSize.y;
-        discript.unum = (int)envMapDistributionSize.x;
+        discript.num = (int)_EnvMapDistributionSize.y;
+        discript.unum = (int)_EnvMapDistributionSize.x;
         discript.domain = float4(0, 1, 0, 1);
         float mapPdf = 0;
 
-        float2 uv = Sample2DContinuous(u, discript, EnvmapMarginals, EnvmapConditions, EnvmapConditionFuncInts, mapPdf);
+        float2 uv = Sample2DContinuous(u, discript, _EnvmapMarginals, _EnvmapConditions, _EnvmapConditionFuncInts, mapPdf);
         return uv;
     }
     else
@@ -245,8 +245,6 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
             if (lightPdf > 0)
             {
                 float3 woLocal = isect.WorldToLocal(isect.wo);
-                //float3 wi;
-                //float scatteringPdf = 0;
                 float3 wiLocal = isect.WorldToLocal(wi);
 
                 Material material = materials[isect.materialID];
@@ -258,15 +256,10 @@ half3 TracingDebug(uint2 id, Ray ray, int view, float2 rayCone, float cameraCone
                 }
                 else
                 {
-                    float beta = f * abs(dot(wi, isect.normal)) / lightPdf;
-                    color = shadowRayRadiance * beta;
+                    f *= abs(dot(wi, isect.normal));
+                    color = shadowRayRadiance * f / lightPdf;
                 }
             }
-            else
-            {
-                color = float3(0, 1, 0);
-            }
-            //color = wi * 0.5 + 0.5;
         }
         break;
         case FresnelView:

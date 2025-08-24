@@ -1,5 +1,5 @@
 // Each #kernel tells which function to compile; you can have many kernels
-
+#include "rtCommon.hlsl"
 #include "sampler.hlsl"
 #include "materials.hlsl"
 #include "wavefrontQueues.hlsl"
@@ -13,7 +13,7 @@
 //#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
 
 int    bounces;
-float2 rasterSize;
+//float2 rasterSize;
 //int    curQueueSizeIndex;
 int    nextQueueSizeIndex;
 int    MIN_DEPTH;
@@ -48,10 +48,10 @@ Light SampleLightSource(inout RNG rng, out float lightSourcePdf, out int lightIn
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y)
         return;
 
-    uint threadId = id.x + id.y * rasterSize.x;
+    uint threadId = id.x + id.y * _ScreenSize.x;
     uint queueSize = _RayQueueSizeBuffer[MATERIAL_SHADING_QUEUE_INDEX];
     if (threadId >= queueSize)
         return;

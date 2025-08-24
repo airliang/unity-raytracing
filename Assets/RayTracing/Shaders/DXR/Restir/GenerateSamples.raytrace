@@ -1,7 +1,6 @@
 
 #include "restir_common.hlsl"
 
-#pragma max_recursion_depth 1
 RWTexture2D<float4> _Output;
 RWStructuredBuffer<ReservoirSample> _ReservoirSamples;
 StructuredBuffer<ReservoirSample> _TemporalReuseSamples;

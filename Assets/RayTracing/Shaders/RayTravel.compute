@@ -1,3 +1,4 @@
+#include "rtCommon.hlsl"
 #include "sampler.hlsl"
 #include "bvhaccel.hlsl"
 #include "materials.hlsl"
@@ -10,7 +11,7 @@
 //#pragma multi_compile __ _ENVMAP_ENABLE
 //#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
 
-float2 rasterSize;
+//float2 rasterSize;
 uniform int    bounces;
 uniform int   curQueueSizeIndex;
 //int    nextQueueSizeIndex;
@@ -42,10 +43,10 @@ RWTexture2D<half4>  RayConeGBuffer;
 void RayTraversal(uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
         return;
 
-    int threadId = id.x + id.y * rasterSize.x;
+    int threadId = id.x + id.y * _ScreenSize.x;
     uint queueSize = _RayQueueSizeBuffer[curQueueSizeIndex];
     if (threadId >= queueSize)
         return;
@@ -94,8 +95,8 @@ void RayTraversal(uint3 id : SV_DispatchThreadID)
             float coneWidth = 0;
             if (bounces == 0)
             {
-                surfaceBeta.y = cameraConeSpreadAngle + surfaceBeta.x;
-                coneWidth = cameraConeSpreadAngle * hitInfo.hitT;
+                surfaceBeta.y = _CameraConeSpreadAngle + surfaceBeta.x;
+                coneWidth = _CameraConeSpreadAngle * hitInfo.hitT;
             }
             else
             {

@@ -1,6 +1,8 @@
 #ifndef ENVIRONMENT_LIGHTING_HLSL
 #define ENVIRONMENT_LIGHTING_HLSL
 
+#include "lighting_common.hlsl"
+
 cbuffer EnvironmentBuffer
 {
     float3 _EnvironmentColor;
@@ -83,6 +85,66 @@ float EnvLightLiPdf(float3 wi)
     return Distribution2DPdf(uv, discript, _EnvmapMarginals, _EnvmapConditions) /
         (2 * PI * PI * sinTheta);
 
+}
+
+float3 UniformSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
+{
+    float mapPdf = 1.0 / (4.0 * PI);
+    //float theta = (1.0 - u[1]) * PI;
+    //float phi = u[0] * 2 * PI;
+    //float cosTheta = cos(theta);
+    //float sinTheta = sin(theta);
+    //float sinPhi = sin(phi);
+    //float cosPhi = cos(phi);
+    wi = PolarToDirection(u);
+    //float2 uv = DirectionToPolar(wi);
+    pdf = mapPdf;
+    return SampleEnviromentLight(u);
+}
+
+
+float3 ImportanceSampleEnviromentLight(float2 u, out float pdf, out float3 wi)
+{
+    if (_ENVIRONMENT_MAP_ENABLE)
+    {
+        DistributionDiscript discript = (DistributionDiscript)0;
+        discript.start = 0;
+        discript.num = (int)_EnvMapDistributionSize.y;
+        discript.unum = (int)_EnvMapDistributionSize.x;
+        discript.domain = float4(0, 1, 0, 1);
+        discript.funcInt = _EnvMapDistributionInt;
+        float mapPdf = 0;
+        pdf = 0;
+        wi = 0;
+        float2 uv = Sample2DContinuous(u, discript, _EnvmapMarginals, _EnvmapConditions, _EnvmapConditionFuncInts, mapPdf);
+        if (mapPdf == 0)
+            return float3(0, 0, 0);
+        // Convert infinite light sample point to direction
+        //uv = float2(0.8, 0.5);
+        float theta = (1.0 - uv.y) * PI;
+        float phi = (0.5 - uv.x) * 2 * PI;
+        float cosTheta = cos(theta);
+        float sinTheta = sin(theta);
+        float sinPhi = sin(phi);
+        float cosPhi = cos(phi);
+        //left hand coordinate and y is up
+        float x = sinTheta * cosPhi;
+        float y = cosTheta;
+        float z = sinTheta * sinPhi;
+        wi = float3(x, y, z);
+
+        // Compute PDF for sampled infinite light direction
+        pdf = mapPdf / (2 * PI * PI * sinTheta);
+        if (sinTheta == 0)
+        {
+            pdf = 0;
+            return 0;
+        }
+
+        return SampleEnviromentLight(uv);
+    }
+    else
+        return UniformSampleEnviromentLight(u, pdf, wi);
 }
 
 #endif

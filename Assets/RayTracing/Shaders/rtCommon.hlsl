@@ -1,39 +1,30 @@
 #ifndef RTCOMMON_HLSL
 #define RTCOMMON_HLSL
-#include "geometry.hlsl"
-//#include "bxdf.hlsl"
-//以后把这些struct放到一个structbuffer.hlsl的文件
-struct BXDF
-{
-	float4 materialParam;
-	float4 kd;
-	float4 ks;
-	float4 kr;
-};
 
-//struct MeshHandle
-//{
-//	int4 offsets;
-//	Bounds bounds;
-//};
+#define CBUFFER_START(name) cbuffer name {
+#define CBUFFER_END };
 
-
-
-//buffers
-
-
-//StructuredBuffer<Primitive> Primitives;
-//StructuredBuffer<float4x4> WorldMatrices;
-
-
-
-//StructuredBuffer<MeshHandle> MeshHandles;
-
-
-uniform float _time;
-
-uniform float3 testBoundMax;
-uniform float3 testBoundMin;
-
+CBUFFER_START(CameraBuffer)
+int _InstBVHAddr;
+int _BVHNodesNum;
+int _FramesNum;
+float4x4 _InvCameraViewProj;
+float4x4 _RasterToCamera;
+float4x4 _CameraToWorld;
+float4x4 _WorldToRaster;
+float3   _CameraPosWS;
+float    _CameraFarDistance;
+float    _LensRadius;
+float    _FocalLength;
+float _CameraConeSpreadAngle;
+int _FrameIndex;
+int _MinDepth;
+int _MaxDepth;
+int _LightsNum;
+int _DebugView;
+int _EnvironmentMapEnable;
+float _EnvironmentLightPmf;
+float4 _ScreenSize;
+CBUFFER_END
 
 #endif

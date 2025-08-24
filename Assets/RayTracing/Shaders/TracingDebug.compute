@@ -8,7 +8,6 @@
 #include "TracingDebug.hlsl"
 
 //use the matrix to calculate the world space ray
-uniform float2 rasterSize;
 
 Texture2D<half2>  RayConeGBuffer;
 RWTexture2D<half4> outputTexture;
@@ -30,14 +29,14 @@ Ray GenerateRay(uint2 id, inout RNG rng)
 
     CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
-    float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
+    float4 nearplanePoint = mul(_RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;
     float3 orig = float3(0, 0, 0);
     float3 direction = normalize(nearplanePoint.xyz);
 
     Ray ray;
-    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
+    ray.orig = mul(_CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(_CameraToWorld, float4(direction, 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
     return ray;
@@ -47,15 +46,15 @@ Ray GenerateRay(uint2 id, inout RNG rng)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
         return;
 
-    int threadId = id.x + id.y * rasterSize.x;
+    int threadId = id.x + id.y * _ScreenSize.x;
     RNG rng = GetRNG(threadId);
     Ray ray = GenerateRay(id.xy, rng);
     //Interaction isect = (Interaction)0;//Intersections[threadId];
     
-    float3 color = TracingDebug(id.xy, ray, debugView, RayConeGBuffer[id.xy], cameraConeSpreadAngle, rng);
+    float3 color = TracingDebug(id.xy, ray, _DebugView, RayConeGBuffer[id.xy], _CameraConeSpreadAngle, rng);
     outputTexture[id.xy] = half4(color, 1);
     WriteRNG(threadId, rng);
 }

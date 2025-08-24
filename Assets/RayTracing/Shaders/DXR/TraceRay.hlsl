@@ -8,6 +8,7 @@
 #include "sampleAreaLights.hlsl"
 #include "environment_lighting.hlsl"
 
+
 float origin() { return 1.0f / 32.0f; }
 float float_scale() { return 1.0f / 65536.0f; }
 float int_scale() { return 256.0f; }
@@ -143,9 +144,11 @@ bool TestRayVisibility(RayDesc ray)
     PathPayload payLoad = (PathPayload)0;
     payLoad.instanceID = -1;
     payLoad.hitResult = HIT_MISS;
-    payLoad.threadID = DispatchRaysIndex().x;
+    uint2 dispatchIdx = DispatchRaysIndex().xy;
+    uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
+    payLoad.threadID = threadId;
     payLoad.rayCone = (RayCone)0;
-    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
+    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, ray, payLoad);
     return payLoad.hitResult == HIT_MISS;
 }
 
@@ -311,7 +314,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone
         payLoad.threadID = threadId;
         payLoad.rayCone = rayCone;
 
-        TraceRay(_AccelerationStructure, /*RAY_FLAG_CULL_BACK_FACING_TRIANGLES*/0, 0xFF, 0, 1, 0, ray, payLoad);
+        TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, ray, payLoad);
 
         if (payLoad.hitResult > HIT_MISS)
         {
@@ -352,14 +355,25 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone
     return ld;
 }
 
-float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, float lightSourcePdf, inout RNG rng)
+float3 MIS_ShadowRay(LightSource lightSource, HitSurface surface, Material material, float lightSourcePdf, inout RNG rng)
 {
     float3 wi;
     float lightPdf = 0;
     float3 samplePointOnLight;
     float3 ld = float3(0, 0, 0);
     float3 lightNormal;
-    float3 Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight, lightNormal);
+    float3 Li = 0;
+    if (lightSource.lightType == AreaLightType)
+    {
+        AreaLight light = _Lights[lightSource.lightIndex];
+        Li = SampleLightRadiance(light, surface.position, rng, wi, lightPdf, samplePointOnLight, lightNormal);
+    }
+    else
+    {
+        Li = ImportanceSampleEnviromentLight(Get2D(rng), lightPdf, wi);
+        lightNormal = -wi;
+        samplePointOnLight = surface.position + wi * _CameraFarDistance; // far away point in the direction of the light
+    }
     lightPdf *= lightSourcePdf;
 
     if (!IsBlack(Li))
@@ -402,14 +416,35 @@ float3 MIS_ShadowRay(AreaLight light, HitSurface surface, Material material, flo
     return ld;
 }
 
+LightSource SelectLightSource(float u, out float pdf)
+{
+    LightSource lightSource;
+    if (u >= _EnvironmentLightPmf)
+    {
+        lightSource.lightIndex = UniformSampleLightSource(u * rcp(1.0 - _EnvironmentLightPmf), _LightsNum, pdf);
+        lightSource.lightType = AreaLightType;
+        pdf *= (1.0f - _EnvironmentLightPmf); // Adjust pdf for area lights
+    }
+    else
+    {
+        lightSource.lightIndex = -1; // No light selected
+        lightSource.lightType = EnvLightType; // Environment light
+        pdf = _EnvironmentLightPmf;
+    }
+    
+    return lightSource;
+}
+
 float3 EstimateDirectLighting(HitSurface hitSurface, Material material, uint threadId, RayCone rayCone, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
 {
     breakPath = false;
     float lightSourcePdf = 1.0;
-    int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);
-    AreaLight light = _Lights[lightIndex];
+    LightSource lightSource = SelectLightSource(Get1D(rng), lightSourcePdf);
+    //int lightIndex = UniformSampleLightSource(Get1D(rng), _LightsNum, lightSourcePdf);
+    //AreaLight light = _Lights[lightIndex];
+    
+    float3 ld = MIS_ShadowRay(lightSource, hitSurface, material, lightSourcePdf, rng);
     pathVertex = (PathVertex)0;
-    float3 ld = MIS_ShadowRay(light, hitSurface, material, lightSourcePdf, rng);
     ld += MIS_BSDF(hitSurface, material, threadId, rayCone, rng, pathVertex);
 
     if (pathVertex.bsdfPdf == 0 || MaxValue(pathVertex.bsdfVal) == 0)
@@ -469,7 +504,6 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
                 }
             }
 
-            
             RayCone preCone;
             preCone.width = surfaceBeta.z;
             preCone.spreadAngle = surfaceBeta.y;

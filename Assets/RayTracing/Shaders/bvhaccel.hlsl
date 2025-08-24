@@ -293,7 +293,7 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 	traversalStack[0] = EntrypointSentinel;
 	//meshInstanceStack[0] = -1;
 	//int leafAddr = 0;               // If negative, then first postponed leaf, non-negative if no leaf (innernode).
-	uint nodeAddr = instBVHAddr >= bvhNodesNum ? 0 : instBVHAddr;
+	uint nodeAddr = _InstBVHAddr >= _BVHNodesNum ? 0 : _InstBVHAddr;
 	//int primitivesNum = 0;   //当前节点的primitives数量
 	//int primitivesNum2 = 0;
 	//int triIdx = 0;
@@ -356,7 +356,7 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 			//if (t1 < 0) t1 = 0;
 
 			int2 next = GetTLASNodeChild(curNode.cids); //new Vector2Int(INVALID_INDEX, INVALID_INDEX);
-			int2 nextMeshInstanceIds = nodeAddr >= instBVHAddr ? GetTopLevelLeaveMeshInstance(curNode.cids) : int2(-1, -1);
+			int2 nextMeshInstanceIds = nodeAddr >= _InstBVHAddr ? GetTopLevelLeaveMeshInstance(curNode.cids) : int2(-1, -1);
 			if (!traverseChild0)
 			{
 				next.x = EntrypointSentinel;
@@ -383,20 +383,20 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 
 				bool curNodeIsX = false;
 				//next.y入栈
-				if (next.x >= instBVHAddr)
+				if (next.x >= _InstBVHAddr)
 				{
 					nodeAddr = next.x;
 					curNodeIsX = true;
 				}
 				else
 				{
-					if (next.y >= instBVHAddr)
+					if (next.y >= _InstBVHAddr)
 						nodeAddr = next.y;
 					else
 						nodeAddr = traversalStack[stackIndex--];
 				}
 				//这里入栈的可能是bottomlevel bvh leaf
-				if (next.y >= instBVHAddr && curNodeIsX)
+				if (next.y >= _InstBVHAddr && curNodeIsX)
 					traversalStack[++stackIndex] = next.y;
 
 			}
@@ -410,12 +410,12 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 			else
 			{
 				//只有其中一个命中
-				if (nodeAddr >= instBVHAddr)
+				if (nodeAddr >= _InstBVHAddr)
 				{
 					//meshInstanceIndex = traverseChild0 ? nextMeshInstanceIds.x : nextMeshInstanceIds.y;
 					int nextNode = traverseChild0 ? next.x : next.y;
 					//ray.SetTMin(traverseChild0 ? t0 : t1);
-					if (nextNode >= instBVHAddr)
+					if (nextNode >= _InstBVHAddr)
 					{
 						nodeAddr = nextNode;
 					}
@@ -428,7 +428,7 @@ bool IntersectBVH(Ray ray, out HitInfo hitInfo, bool anyHit)
 			for (int i = 0; i < 2; ++i)
 			{
 				//如果next是bottom level bvh node
-				if (0 <= next[i] && next[i] < instBVHAddr)
+				if (0 <= next[i] && next[i] < _InstBVHAddr)
 				{
 					MeshInstance meshInstance = MeshInstances[nextMeshInstanceIds[i]];
 					Ray rayTemp = TransformRay(meshInstance.worldToLocal, ray);
@@ -479,7 +479,7 @@ bool BVHHit(Ray ray, out HitInfo hitInfo, bool anyHit)
 	int traversalStack[64];
 	int   stackIndex = 0;
 	traversalStack[stackIndex++] = INVALID_INDEX;
-	int curIndex = instBVHAddr;
+	int curIndex = _InstBVHAddr;
 	//bool blas = false;
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 	float3 rayDir = ray.direction;
@@ -616,7 +616,7 @@ bool BVHHit2(Ray ray, out HitInfo hitInfo, bool anyHit)
 	int caseStack[64];
 	int   stackIndex = 0;
 	traversalStack[stackIndex++] = int3(INVALID_INDEX, NODE_PARENT, -1);
-	int curIndex = instBVHAddr;
+	int curIndex = _InstBVHAddr;
 	//bool blas = false;
 	float ooeps = pow(2, -80.0f);//exp2f(-80.0f); // Avoid div by zero, returns 1/2^80, an extremely small number
 	float3 rayDir = ray.direction;
@@ -828,7 +828,7 @@ bool BVHHit3(Ray ray, inout HitInfo hitInfo, bool anyHit)
 	int ptr = 0;
 	traversalStack[ptr++] = -1;
 
-	int index = instBVHAddr;
+	int index = _InstBVHAddr;
 	float leftHit = 0.0;
 	float rightHit = 0.0;
 

@@ -124,7 +124,112 @@ class EnviromentLight : LightInstance
     }
 }
 
+public class PathTracingParam
+{
+    public static int _AccelerationStructure = -1;
+    public static int _Output = -1;
+    public static int _InstBVHAddr = -1;
+    public static int _BVHNodesNum = -1;
+    public static int _InvCameraViewProj = -1;
+    public static int _CameraPosWS = -1;
+    public static int _CameraFarDistance = -1;
+    public static int _RasterToCamera = -1;
+    public static int _CameraToWorld = -1;
+    public static int _WorldToRaster = -1;
+    public static int _LensRadius = -1;
+    public static int _FocalLength = -1;
+    public static int _FrameIndex = -1;
+    public static int _MaxDepth = -1;
+    public static int _MinDepth = -1;
+    public static int _LightsNum = -1;
+    public static int _RNGs = -1;
+    public static int _Lights = -1;
+    public static int _TriangleLights = -1;
+    public static int _LightDistributions1D = -1;
+    public static int _LightDistributionDiscripts = -1;
+    public static int _LightTriangles = -1;
+    public static int _LightVertices = -1;
+    public static int _RayConeGBuffer = -1;
+    public static int _CameraConeSpreadAngle = -1;
+    public static int _Spectrums = -1;
+    public static int _DebugView = -1;
+    public static int _Materials = -1;
+    //public static int _InstanceTransforms = -1;
+    public static int _EnvmapRotation = -1;
+    public static int _EnvironmentColor = -1;
+    public static int _LatitudeLongitudeMap = -1;
+    public static int _EnvmapMarginals = -1;
+    public static int _EnvmapConditions = -1;
+    public static int _EnvmapConditionFuncInts = -1;
+    public static int _EnvMapDistributionSize = -1;
+    public static int _EnvMapDistributionInt = -1;
+    public static int _FilterMarginals = -1;
+    public static int _FilterConditions = -1;
+    public static int _FilterConditionsFuncInts = -1;
+    public static int _MarginalNum = -1;
+    public static int _ConditionNum = -1;
+    public static int _FilterDomain = -1;
+    public static int _FilterFuncInt = -1;
+    public static int _EnvironmentMapEnable = -1;
+    public static int _EnvironmentLightPmf = -1;
+    public static int _ScreenSize = -1;
 
+    public static int _ReservoirSamples = -1;
+    public static int _TemporalReuseSamples = -1;
+
+    public static void InitPathTracingParam()
+    {
+        _AccelerationStructure = Shader.PropertyToID("_AccelerationStructure");
+        _Output = Shader.PropertyToID("_Output");
+        _InstBVHAddr = Shader.PropertyToID("_InstBVHAddr");
+        _BVHNodesNum = Shader.PropertyToID("_BVHNodesNum");
+        _InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
+        _CameraPosWS = Shader.PropertyToID("_CameraPosWS");
+        _CameraFarDistance = Shader.PropertyToID("_CameraFarDistance");
+        _RasterToCamera = Shader.PropertyToID("_RasterToCamera");
+        _CameraToWorld = Shader.PropertyToID("_CameraToWorld");
+        _WorldToRaster = Shader.PropertyToID("_WorldToRaster");
+        _LensRadius = Shader.PropertyToID("_LensRadius");
+        _FocalLength = Shader.PropertyToID("_FocalLength");
+        _FrameIndex = Shader.PropertyToID("_FrameIndex");
+        _MaxDepth = Shader.PropertyToID("_MaxDepth");
+        _MinDepth = Shader.PropertyToID("_MinDepth");
+        _LightsNum = Shader.PropertyToID("_LightsNum");
+        _RNGs = Shader.PropertyToID("_RNGs");
+        _Lights = Shader.PropertyToID("_Lights");
+        _TriangleLights = Shader.PropertyToID("_TriangleLights");
+        _LightDistributions1D = Shader.PropertyToID("_LightDistributions1D");
+        _LightDistributionDiscripts = Shader.PropertyToID("_LightDistributionDiscripts");
+        _LightTriangles = Shader.PropertyToID("_LightTriangles");
+        _LightVertices = Shader.PropertyToID("_LightVertices");
+        _RayConeGBuffer = Shader.PropertyToID("_RayConeGBuffer");
+        _CameraConeSpreadAngle = Shader.PropertyToID("_CameraConeSpreadAngle");
+        _Spectrums = Shader.PropertyToID("_Spectrums");
+        _DebugView = Shader.PropertyToID("_DebugView");
+        _Materials = Shader.PropertyToID("_Materials");
+        _EnvironmentColor = Shader.PropertyToID("_EnvironmentColor");
+        _EnvmapRotation = Shader.PropertyToID("_EnvmapRotation");
+        _LatitudeLongitudeMap = Shader.PropertyToID("_LatitudeLongitudeMap");
+        _EnvmapMarginals = Shader.PropertyToID("_EnvmapMarginals");
+        _EnvmapConditions = Shader.PropertyToID("_EnvmapConditions");
+        _EnvmapConditionFuncInts = Shader.PropertyToID("_EnvmapConditionFuncInts");
+        _EnvMapDistributionSize = Shader.PropertyToID("_EnvMapDistributionSize");
+        _EnvMapDistributionInt = Shader.PropertyToID("_EnvMapDistributionInt");
+        _FilterMarginals = Shader.PropertyToID("_FilterMarginals");
+        _FilterConditions = Shader.PropertyToID("_FilterConditions");
+        _FilterConditionsFuncInts = Shader.PropertyToID("_FilterConditionsFuncInts");
+        _MarginalNum = Shader.PropertyToID("_MarginalNum");
+        _ConditionNum = Shader.PropertyToID("_ConditionNum");
+        _FilterDomain = Shader.PropertyToID("_FilterDomain");
+        _FilterFuncInt = Shader.PropertyToID("_FilterFuncInt");
+        _EnvironmentMapEnable = Shader.PropertyToID("_EnvironmentMapEnable");
+        _EnvironmentLightPmf = Shader.PropertyToID("_EnvironmentLightPmf");
+        _ScreenSize = Shader.PropertyToID("_ScreenSize");
+
+        _ReservoirSamples = Shader.PropertyToID("_ReservoirSamples");
+        _TemporalReuseSamples = Shader.PropertyToID("_TemporalReuseSamples");
+    }
+}
 
 public class GPUSceneData
 {
@@ -182,6 +287,7 @@ public class GPUSceneData
 
     public GPUSceneData(bool uniformSampleLight, bool envmapEnable, bool useBVHPlugin)
     {
+        PathTracingParam.InitPathTracingParam();
         _uniformSampleLight = uniformSampleLight;
         _envmapEnable = envmapEnable;
         bvhAccel.buildByCPP = useBVHPlugin;
@@ -755,9 +861,8 @@ public class GPUSceneData
         
         cs.SetBuffer(kernel, "lights", lightBuffer);
         cs.SetBuffer(kernel, "materials", materialBuffer);
-        cs.SetInt("instBVHAddr", instBVHNodeAddr);
-        cs.SetInt("bvhNodesNum", bvhAccel.m_nodes.Count);
-        cs.SetFloat("worldRadius", worldBound.extents.magnitude);
+        cs.SetInt(PathTracingParam._InstBVHAddr, instBVHNodeAddr);
+        cs.SetInt(PathTracingParam._BVHNodesNum, bvhAccel.m_nodes.Count);
         //if (_envmapEnable)
         //    cs.EnableKeyword("_ENVMAP_ENABLE");
         //else
@@ -788,20 +893,20 @@ public class GPUSceneData
         //enviroment map setting
         if (envLight.textureRadiance != null)
         {
-            cs.SetTexture(kernel, "_LatitudeLongitudeMap", envLight.textureRadiance);
+            cs.SetTexture(kernel, PathTracingParam._LatitudeLongitudeMap, envLight.textureRadiance);
             cs.SetInt("enviromentTextureMask", 1);
-            cs.SetFloat("_EnvmapRotation", envLight.rotation);
+            cs.SetFloat(PathTracingParam._EnvmapRotation, envLight.rotation);
         }
         else
         {
             cs.SetInt("enviromentTextureMask", 0);
-            cs.SetTexture(kernel, "_LatitudeLongitudeMap", Texture2D.blackTexture);
+            cs.SetTexture(kernel, PathTracingParam._LatitudeLongitudeMap, Texture2D.blackTexture);
             cs.SetVector("enviromentColor", envLight.radiance);
         }
 
         if (envLight.envmapDistributions != null)
         {
-            cs.SetFloat("_EnvMapDistributionInt", envLight.envmapDistributions.Intergal());
+            cs.SetFloat(PathTracingParam._EnvMapDistributionInt, envLight.envmapDistributions.Intergal());
 
             if (envLightMarginalBuffer == null)
             {
@@ -825,10 +930,10 @@ public class GPUSceneData
                 envLightConditionFuncIntsBuffer.SetData(conditionalFuncInts);
             }
 
-            cs.SetBuffer(kernel, "EnvmapMarginals", envLightMarginalBuffer);
-            cs.SetBuffer(kernel, "EnvmapConditions", envLightConditionBuffer);
-            cs.SetBuffer(kernel, "EnvmapConditionFuncInts", envLightConditionFuncIntsBuffer);
-            cs.SetVector("envMapDistributionSize", new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+            cs.SetBuffer(kernel, PathTracingParam._EnvmapMarginals, envLightMarginalBuffer);
+            cs.SetBuffer(kernel, PathTracingParam._EnvmapConditions, envLightConditionBuffer);
+            cs.SetBuffer(kernel, PathTracingParam._EnvmapConditionFuncInts, envLightConditionFuncIntsBuffer);
+            cs.SetVector(PathTracingParam._EnvMapDistributionSize, new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
             
             //just for test
             //cs.SetBuffer(kernel, "EnvmapDistributions", envLight.computeBuffer);
@@ -836,9 +941,9 @@ public class GPUSceneData
         cs.SetInt("_EnvLightIndex", envLightIndex);
         //cs.SetBool("_UniformSampleLight", _uniformSampleLight);
 
-        cs.SetMatrix("WorldToRaster", WorldToRaster);
-        cs.SetMatrix("RasterToCamera", RasterToCamera);
-        cs.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
+        cs.SetMatrix(PathTracingParam._WorldToRaster, WorldToRaster);
+        cs.SetMatrix(PathTracingParam._RasterToCamera, RasterToCamera);
+        cs.SetFloat(PathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
     }
 
     public void Release()
@@ -932,15 +1037,15 @@ public class GPUFilterData
             filterConditionsFuncIntsBuffer.SetData(conditionFuncInts);
         }
 
-        cs.SetBuffer(kernel, "FilterMarginals", filterMarginalBuffer);
-        cs.SetBuffer(kernel, "FilterConditions", filterConditionBuffer);
-        cs.SetBuffer(kernel, "FilterConditionsFuncInts", filterConditionsFuncIntsBuffer);
+        cs.SetBuffer(kernel, PathTracingParam._FilterMarginals, filterMarginalBuffer);
+        cs.SetBuffer(kernel, PathTracingParam._FilterConditions, filterConditionBuffer);
+        cs.SetBuffer(kernel, PathTracingParam._FilterConditionsFuncInts, filterConditionsFuncIntsBuffer);
 
-        cs.SetInt("MarginalNum", filterSize.y);
-        cs.SetInt("ConditionNum", filterSize.x);
+        cs.SetInt(PathTracingParam._MarginalNum, filterSize.y);
+        cs.SetInt(PathTracingParam._ConditionNum, filterSize.x);
         Bounds2D domain = _filter.GetDomain();
-        cs.SetVector("FilterDomain", new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
-        cs.SetFloat("FilterFuncInt", filterDistribution.Intergal());
+        cs.SetVector(PathTracingParam._FilterDomain, new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
+        cs.SetFloat(PathTracingParam._FilterFuncInt, filterDistribution.Intergal());
     }
 
     public void Release()

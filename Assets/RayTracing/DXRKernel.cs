@@ -109,6 +109,8 @@ public class DXRKernel : TracingKernel
         public float targetFunction;
         public float weightSum;
         public float weight;
+        public uint numStreams;
+        public uint lightIndex;
     }
 
     public struct GPUInstanceTransform
@@ -168,7 +170,7 @@ public class DXRKernel : TracingKernel
         public static int _TemporalReuseSamples = -1;
     }
 
-    public DXRKernel(DXRPTResource resourceData)
+    public DXRKernel(DXRPTResource resourceData, RestirResource restirResource)
     {
         supportedRTX = SystemInfo.supportsRayTracing;
         if (supportedRTX)
@@ -176,6 +178,8 @@ public class DXRKernel : TracingKernel
             InitDXRPathTracingParam();
             pathTracing = resourceData.pathTracing;
             InitRandom = resourceData.InitRandom;
+
+            generateReservoirSamples = restirResource.GenerateSamples;
         }
         
     }
@@ -659,7 +663,7 @@ public class DXRKernel : TracingKernel
             float rasterHeight = Screen.height;
             int kInitRandom = InitRandom.FindKernel("CSInitSampler");
             InitRandom.SetBuffer(kInitRandom, "RNGs", RNGBuffer);
-            InitRandom.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+            InitRandom.SetVector("_ScreenSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
             InitRandom.Dispatch(kInitRandom, Mathf.CeilToInt(rasterWidth / 8), Mathf.CeilToInt(rasterHeight / 8), 1);
         }
     }
@@ -773,6 +777,7 @@ public class DXRKernel : TracingKernel
             gpuFilterData.Setup(filter);
 
             SetupMaterialData();
+            PrepareGPUData();
 
             if (_rayTracingData.RestirEnable)
             {
@@ -784,7 +789,7 @@ public class DXRKernel : TracingKernel
         }
     }
 
-    void SetFilterGPUData(CommandBuffer cmd)
+    void PrepareGPUData()
     {
         Filter filter = gpuFilterData.filter;
 
@@ -813,39 +818,43 @@ public class DXRKernel : TracingKernel
                 new ComputeBuffer(conditionFuncInts.Count, sizeof(float), ComputeBufferType.Structured);
             filterConditionsFuncIntsBuffer.SetData(conditionFuncInts);
         }
-
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._FilterMarginals, filterMarginalBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._FilterConditions, filterConditionBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._FilterConditionsFuncInts, filterConditionsFuncIntsBuffer);
-
-        cmd.SetRayTracingIntParam(pathTracing, DXRPathTracingParam._MarginalNum, filterSize.y);
-        cmd.SetRayTracingIntParam(pathTracing, DXRPathTracingParam._ConditionNum, filterSize.x);
-        Bounds2D domain = filter.GetDomain();
-        cmd.SetRayTracingVectorParam(pathTracing, DXRPathTracingParam._FilterDomain, new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
-        cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._FilterFuncInt, filterDistribution.Intergal());
     }
 
-    void SetLightGPUData(CommandBuffer cmd)
+    void SetRaytracingShaderParams(RayTracingShader shader, CommandBuffer cmd)
     {
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._Lights, lightBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._LightDistributions1D, lightDistributionBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._LightDistributionDiscripts, lightDistributionDiscriptBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._LightTriangles, lightTrianglesBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._LightVertices, lightVerticesBuffer);
-        cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._TriangleLights, triangleLightsBuffer);
+        Filter filter = gpuFilterData.filter;
+        Vector2Int filterSize = filter.GetDistributionSize();
+        Distribution2D filterDistribution = filter.SampleDistributions();
+
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._FilterMarginals, filterMarginalBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._FilterConditions, filterConditionBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._FilterConditionsFuncInts, filterConditionsFuncIntsBuffer);
+
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._MarginalNum, filterSize.y);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._ConditionNum, filterSize.x);
+        Bounds2D domain = filter.GetDomain();
+        cmd.SetRayTracingVectorParam(shader, DXRPathTracingParam._FilterDomain, new Vector4(domain.min[0], domain.max[0], domain.min[1], domain.max[1]));
+        cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._FilterFuncInt, filterDistribution.Intergal());
+
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._Lights, lightBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightDistributions1D, lightDistributionBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightDistributionDiscripts, lightDistributionDiscriptBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightTriangles, lightTrianglesBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightVertices, lightVerticesBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._TriangleLights, triangleLightsBuffer);
 
         if (envLight != null && envLight.envmapDistributions != null)
         {
             if (envLight.textureRadiance != null)
             {
-                cmd.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._LatitudeLongitudeMap, envLight.textureRadiance);
+                cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._LatitudeLongitudeMap, envLight.textureRadiance);
             }
             else
             {
-                cmd.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._LatitudeLongitudeMap, Texture2D.blackTexture);
+                cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._LatitudeLongitudeMap, Texture2D.blackTexture);
             }
 
-            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvMapDistributionInt, envLight.envmapDistributions.Intergal());
+            cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._EnvMapDistributionInt, envLight.envmapDistributions.Intergal());
 
             if (envLightMarginalBuffer == null)
             {
@@ -870,21 +879,19 @@ public class DXRKernel : TracingKernel
             }
 
             //cmd.EnableShaderKeyword("_ENVIRONMENT_MAP_ENABLE");
-            cmd.SetRayTracingIntParam(pathTracing, DXRPathTracingParam._EnvironmentMapEnable, 1);
-            cmd.SetRayTracingVectorParam(pathTracing, DXRPathTracingParam._EnvironmentColor, envLight.radiance);
-            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvmapRotation, envLight.rotation);
-            cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._EnvmapMarginals, envLightMarginalBuffer);
-            cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._EnvmapConditions, envLightConditionBuffer);
-            cmd.SetRayTracingBufferParam(pathTracing, DXRPathTracingParam._EnvmapConditionFuncInts, envLightConditionFuncIntsBuffer);
-            cmd.SetRayTracingVectorParam(pathTracing, DXRPathTracingParam._EnvMapDistributionSize, new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
-            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvironmentLightPmf, _rayTracingData._EnvironmentLightPmf);
+            cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._EnvironmentMapEnable, _rayTracingData._EnviromentMapEnable ? 1 : 0);
+            cmd.SetRayTracingVectorParam(shader, DXRPathTracingParam._EnvironmentColor, envLight.radiance);
+            cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._EnvmapRotation, envLight.rotation);
+            cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._EnvmapMarginals, envLightMarginalBuffer);
+            cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._EnvmapConditions, envLightConditionBuffer);
+            cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._EnvmapConditionFuncInts, envLightConditionFuncIntsBuffer);
+            cmd.SetRayTracingVectorParam(shader, DXRPathTracingParam._EnvMapDistributionSize, new Vector2(envLight.envmapDistributions.size.x, envLight.envmapDistributions.size.y));
+            cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._EnvironmentLightPmf, _rayTracingData._EnviromentMapEnable ? _rayTracingData._EnvironmentLightPmf : 0);
         }
-        else
-        {
-            //cmd.DisableShaderKeyword("_ENVIRONMENT_MAP_ENABLE");
-            cmd.SetRayTracingIntParam(pathTracing, DXRPathTracingParam._EnvironmentMapEnable, 0);
-            cmd.SetRayTracingFloatParam(pathTracing, DXRPathTracingParam._EnvironmentLightPmf, 0.0f);
-        }
+
+        cmdDXR.SetRayTracingShaderPass(shader, "RayTracing");
+        cmdDXR.SetRayTracingAccelerationStructure(shader, DXRPathTracingParam._AccelerationStructure, rtas);
+        cmdDXR.SetRayTracingTextureParam(shader, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
     }
 
     public bool Update(Camera camera)
@@ -910,10 +917,6 @@ public class DXRKernel : TracingKernel
 
         cmdDXR.BeginSample("DXR Pathtracing");
         {
-
-            cmdDXR.SetRayTracingShaderPass(pathTracing, "RayTracing");
-            cmdDXR.SetRayTracingAccelerationStructure(pathTracing, DXRPathTracingParam._AccelerationStructure, rtas);
-            cmdDXR.SetRayTracingTextureParam(pathTracing, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
             var projMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
             var viewMatrix = camera.worldToCameraMatrix;
             var viewProjMatrix = projMatrix * viewMatrix;
@@ -935,22 +938,20 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
             cmdDXR.SetGlobalTexture(DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._DebugView, (int)_rayTracingData.viewMode);
-
-            //filter importance sampling
-            SetFilterGPUData(cmdDXR);
-
-            SetLightGPUData(cmdDXR);
-
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._Materials, materialBuffer);
 
             if (_rayTracingData.RestirEnable)
             {
+                SetRaytracingShaderParams(generateReservoirSamples, cmdDXR);
                 cmdDXR.SetGlobalBuffer(DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
                 cmdDXR.SetGlobalBuffer(DXRPathTracingParam._TemporalReuseSamples, temporalReuseSamplesBuffer);
                 cmdDXR.DispatchRays(generateReservoirSamples, "GenerateSamples", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
             }
             else
+            {
+                SetRaytracingShaderParams(pathTracing, cmdDXR);
                 cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
+            }
         }
 
             

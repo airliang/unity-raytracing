@@ -1,3 +1,4 @@
+#include "rtCommon.hlsl"
 #include "sampler.hlsl"
 #include "wavefrontQueues.hlsl"
 //#include "bxdf.hlsl"
@@ -10,11 +11,11 @@
 // with cs.SetTexture
 
 //use the matrix to calculate the world space ray
-matrix RasterToCamera;
-matrix CameraToWorld;
-float2 rasterSize;
-float  _LensRadius;
-float  _FocalLength;
+//matrix RasterToCamera;
+//matrix CameraToWorld;
+//float2 rasterSize;
+//float  _LensRadius;
+//float  _FocalLength;
 
 RWStructuredBuffer<WorkQueueItem>    _WorkQueueItems;
 RWStructuredBuffer<PathRadiance> pathRadiances;
@@ -35,9 +36,9 @@ CameraSample GetCameraSample(float2 pRaster, float2 u)
 void GeneratePrimary(uint3 id : SV_DispatchThreadID)
 {
     // TODO: insert actual code here!
-    if (id.x >= rasterSize.x || id.y >= rasterSize.y)
+    if (id.x >= _ScreenSize.x || id.y >= _ScreenSize.y)
         return;
-    uint threadId = id.x + id.y * rasterSize.x;
+    uint threadId = id.x + id.y * _ScreenSize.x;
     //uint workIndex = _RayQueue[threadId];
     //Result[id.xy] = float4(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0, 0.0);
     RNG rng = GetRNG(threadId);
@@ -45,7 +46,7 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
     
     CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); 
     float3 pFilm = float3(cSample.pFilm, 0);
-    float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
+    float4 nearplanePoint = mul(_RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;
 
     Ray ray;
@@ -61,8 +62,8 @@ void GeneratePrimary(uint3 id : SV_DispatchThreadID)
         orig = float3(pLens, 0);
         direction = normalize(focusPoint - orig);
     }
-    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
+    ray.orig = mul(_CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(_CameraToWorld, float4(direction, 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
     

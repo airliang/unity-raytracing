@@ -123,9 +123,9 @@ public class MegaKernel : TracingKernel
         int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
         int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
         //RenderToGBuffer(camera);
-        _MegaCompute.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
-        _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        _MegaCompute.SetInt("framesNum", framesNum);
+        _MegaCompute.SetMatrix(PathTracingParam._RasterToCamera, gpuSceneData.RasterToCamera);
+        _MegaCompute.SetMatrix(PathTracingParam._CameraToWorld, camera.cameraToWorldMatrix);
+        _MegaCompute.SetInt(PathTracingParam._FrameIndex, framesNum);
         _MegaCompute.Dispatch(_MegaComputeKernel, threadGroupX, threadGroupY, 1);
         return false;
     }
@@ -140,7 +140,7 @@ public class MegaKernel : TracingKernel
             samplerBuffer = new ComputeBuffer(Screen.width * Screen.height, sizeof(uint), ComputeBufferType.Structured);
         }
         _InitSampler.SetBuffer(_InitSamplerKernel, "RNGs", samplerBuffer);
-        _InitSampler.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        _InitSampler.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         _InitSampler.Dispatch(_InitSamplerKernel, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
 
         _MegaCompute.SetInt("MAX_PATH", _rayTracingData.MaxDepth);
@@ -152,14 +152,14 @@ public class MegaKernel : TracingKernel
         gpuSceneData.SetComputeShaderGPUData(_MegaCompute, _MegaComputeKernel);
         gpuFilterData.SetComputeShaderGPUData(_MegaCompute, _MegaComputeKernel);
 
-        _MegaCompute.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        _MegaCompute.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         //_MegaCompute.SetMatrix("RasterToCamera", RasterToCamera);
-        _MegaCompute.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
+        _MegaCompute.SetMatrix(PathTracingParam._CameraToWorld, camera.cameraToWorldMatrix);
         //_MegaCompute.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
-        _MegaCompute.SetInt("debugView", (int)_rayTracingData.viewMode);
+        _MegaCompute.SetInt(PathTracingParam._DebugView, (int)_rayTracingData.viewMode);
         _MegaCompute.SetFloat("cameraFar", camera.farClipPlane);
-        _MegaCompute.SetFloat("_LensRadius", _rayTracingData._LensRadius);
-        _MegaCompute.SetFloat("_FocalLength", _rayTracingData._FocalLength);
+        _MegaCompute.SetFloat(PathTracingParam._LensRadius, _rayTracingData._LensRadius);
+        _MegaCompute.SetFloat(PathTracingParam._FocalLength, _rayTracingData._FocalLength);
 
         _MegaCompute.SetTexture(_MegaComputeKernel, "RayConeGBuffer", _rayTracingData.RayConeGBuffer);
 

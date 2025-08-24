@@ -1,7 +1,8 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSMain
-
+#pragma enable_d3d11_debug_symbols
 #pragma multi_compile __ _ENVMAP_ENABLE
+#include "rtCommon.hlsl"
 //#pragma multi_compile _ _UNIFORM_SAMPLE_LIGHT
 #include "sampler.hlsl"
 #include "GPUStructs.hlsl"
@@ -10,13 +11,10 @@
 #include "colorConvert.hlsl"
 #include "TracingDebug.hlsl"
 
-//matrix RasterToCamera;
-//matrix CameraToWorld;
-float2 rasterSize;
-float _Exposure;
-int framesNum;
-float  _LensRadius;
-float  _FocalLength;
+//float2 _ScreenSize;
+//int _FramesNum;
+//float  _LensRadius;
+//float  _FocalLength;
 RWTexture2D<half4> outputTexture;
 RWTexture2D<float4>  spectrums;
 
@@ -36,7 +34,7 @@ Ray GenerateRay(uint2 id, inout RNG rng)
 
     CameraSample cSample = GetCameraSample(float2(id.x, id.y), u); //rs.GetCameraSample(float2(id.x, id.y), _time);
     float3 pFilm = float3(cSample.pFilm, 0);
-    float4 nearplanePoint = mul(RasterToCamera, float4(pFilm, 1));
+    float4 nearplanePoint = mul(_RasterToCamera, float4(pFilm, 1));
     nearplanePoint /= nearplanePoint.w;
     float3 orig = float3(0, 0, 0);
     float3 direction = normalize(nearplanePoint.xyz);
@@ -51,8 +49,8 @@ Ray GenerateRay(uint2 id, inout RNG rng)
         direction = normalize(focusPoint - orig);
     }
     Ray ray;
-    ray.orig = mul(CameraToWorld, float4(orig, 1)).xyz;
-    ray.direction = mul(CameraToWorld, float4(direction, 0)).xyz;
+    ray.orig = mul(_CameraToWorld, float4(orig, 1)).xyz;
+    ray.direction = mul(_CameraToWorld, float4(direction, 0)).xyz;
     ray.tmax = FLT_MAX;
     ray.tmin = 0;
     return ray;
@@ -61,10 +59,10 @@ Ray GenerateRay(uint2 id, inout RNG rng)
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
         return;
 
-    uint threadId = id.x + id.y * rasterSize.x;
+    uint threadId = id.x + id.y * _ScreenSize.x;
 
     RNG rng = GetRNG(threadId);
     //first step: generate ray
@@ -72,13 +70,13 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     //second step:caculate the raidiance of this path
     float3 color;
-    if (debugView == 0)
+    if (_DebugView == 0)
     {
         float3 li = PathLi(ray, id.xy, rng);
         float3 radiance = li; 
         //third step: output the final radiance to texture
         float3 spectrum = spectrums[id.xy];
-        float t = 1.0f / framesNum;
+        float t = 1.0f / _FrameIndex;
         float3 curSpectrum = lerp(spectrum, radiance, t);
         //spectrum.rgb += radiance;
         spectrums[id.xy] = float4(curSpectrum, 1);
@@ -86,7 +84,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     }
     else
     {
-        color = TracingDebug(id.xy, ray, debugView, RayConeGBuffer[id.xy], cameraConeSpreadAngle, rng);
+        color = TracingDebug(id.xy, ray, _DebugView, RayConeGBuffer[id.xy], _CameraConeSpreadAngle, rng);
     }
     WriteRNG(threadId, rng);
   

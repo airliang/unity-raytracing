@@ -265,8 +265,8 @@ public class WavefrontKernel : TracingKernel
         int curRaySizeIndex = 0;
         int nextRaySizeIndex = 1;
 
-        generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
-        generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
+        generateRay.SetMatrix(PathTracingParam._RasterToCamera, gpuSceneData.RasterToCamera);
+        generateRay.SetMatrix(PathTracingParam._CameraToWorld, camera.cameraToWorldMatrix);
 
         int threadGroupX = Screen.width / 8 + ((Screen.width % 8) != 0 ? 1 : 0);
         int threadGroupY = Screen.height / 8 + ((Screen.height % 8) != 0 ? 1 : 0);
@@ -331,7 +331,7 @@ public class WavefrontKernel : TracingKernel
                 SwitchRayQueue();
             }
 
-            ImageReconstruction.SetInt("framesNum", framesNum);
+            ImageReconstruction.SetInt(PathTracingParam._FrameIndex, framesNum);
             ImageReconstruction.SetFloat("_Exposure", _Exposure);
             ImageReconstruction.Dispatch(kImageReconstruction, threadGroupX, threadGroupY, 1);
         }
@@ -340,7 +340,7 @@ public class WavefrontKernel : TracingKernel
             if (kDebugView < 0)
                 SetupDebugView(camera);
 
-            DebugView.SetInt("debugView", (int)_rayTracingData.viewMode);
+            DebugView.SetInt(PathTracingParam._DebugView, (int)_rayTracingData.viewMode);
             DebugView.SetInt("bounces", 0);
 
             DebugView.Dispatch(kDebugView, threadGroupX, threadGroupY, 1);
@@ -373,7 +373,7 @@ public class WavefrontKernel : TracingKernel
         float rasterHeight = Screen.height;
         kInitRandom = InitRandom.FindKernel("CSInitSampler");
         InitRandom.SetBuffer(kInitRandom, "RNGs", samplerBuffer);
-        InitRandom.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        InitRandom.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         InitRandom.Dispatch(kInitRandom, (int)rasterWidth / 8 + 1, (int)rasterHeight / 8 + 1, 1);
     }
 
@@ -456,11 +456,11 @@ public class WavefrontKernel : TracingKernel
         kGeneratePrimaryRay = generateRay.FindKernel("GeneratePrimary");
 
         //generateRay.SetBuffer(kGeneratePrimaryRay, "Rays", rayBuffer);
-        generateRay.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
-        generateRay.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
-        generateRay.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
-        generateRay.SetFloat("_LensRadius", _rayTracingData._LensRadius);
-        generateRay.SetFloat("_FocalLength", _rayTracingData._FocalLength);
+        generateRay.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
+        generateRay.SetMatrix(PathTracingParam._RasterToCamera, gpuSceneData.RasterToCamera);
+        generateRay.SetMatrix(PathTracingParam._CameraToWorld, camera.cameraToWorldMatrix);
+        generateRay.SetFloat(PathTracingParam._LensRadius, _rayTracingData._LensRadius);
+        generateRay.SetFloat(PathTracingParam._FocalLength, _rayTracingData._FocalLength);
         generateRay.SetBuffer(kGeneratePrimaryRay, "RNGs", samplerBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "pathRadiances", pathRadianceBuffer);
         generateRay.SetBuffer(kGeneratePrimaryRay, "_WorkQueueItems", workItemBuffer);
@@ -476,7 +476,7 @@ public class WavefrontKernel : TracingKernel
 
         kResetRayQueues = ResetRayQueues.FindKernel("CSMain");
         ResetRayQueues.SetBuffer(kResetRayQueues, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        ResetRayQueues.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        ResetRayQueues.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
     }
 
     void SetupRayMiss()
@@ -486,7 +486,7 @@ public class WavefrontKernel : TracingKernel
 
         kRayMiss = RayMiss.FindKernel("CSMain");
         RayMiss.SetBuffer(kRayMiss, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        RayMiss.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        RayMiss.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         RayMiss.SetBuffer(kRayMiss, "_EscapeRayItems", escapeRayItemBuffer);
         RayMiss.SetBuffer(kRayMiss, "_RayMissQueue", escapeRayQueueBuffer);
         RayMiss.SetBuffer(kRayMiss, "pathRadiances", pathRadianceBuffer);
@@ -500,7 +500,7 @@ public class WavefrontKernel : TracingKernel
 
         kHitAreaLight = RayMiss.FindKernel("CSMain");
         HitAreaLight.SetBuffer(kHitAreaLight, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
-        HitAreaLight.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        HitAreaLight.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         HitAreaLight.SetBuffer(kHitAreaLight, "_HitLightQueueItems", hitLightItemBuffer);
         HitAreaLight.SetBuffer(kHitAreaLight, "_HitLightQueue", hitLightQueueBuffer);
         HitAreaLight.SetBuffer(kHitAreaLight, "pathRadiances", pathRadianceBuffer);
@@ -524,7 +524,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_ShadowRayQueue", shadowRayQueueBuffer);
         SetComputeBuffer(EstimateDirect, kEstimateDirect, "_ShadowRayQueueItems", shadowRayItemBuffer);
         SetComputeBuffer(EstimateDirect, kRayTraversal, "_WorkQueueItems", workItemBuffer);
-        EstimateDirect.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
+        EstimateDirect.SetVector(PathTracingParam._ScreenSize, new Vector4(Screen.width, Screen.height, 0, 0));
         //EstimateDirect.SetMatrix("WorldToRaster", WorldToRaster);
         SetTextures(EstimateDirect, kEstimateDirect);
         EstimateDirect.SetInt("MIN_DEPTH", _rayTracingData.MinDepth);
@@ -538,7 +538,7 @@ public class WavefrontKernel : TracingKernel
         SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_RayQueueSizeBuffer", rayQueueSizeBuffer);
         SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_ShadowRayQueue", shadowRayQueueBuffer);
         SetComputeBuffer(ShadowRayLighting, kShadowRayLighting, "_ShadowRayQueueItems", shadowRayItemBuffer);
-        ShadowRayLighting.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
+        ShadowRayLighting.SetVector(PathTracingParam._ScreenSize, new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
     void SetupImageReconstruction()
@@ -548,7 +548,7 @@ public class WavefrontKernel : TracingKernel
         //ImageReconstruction.SetBuffer(kImageReconstruction, "spectrums", imageSpectrumsBuffer);
         SetComputeTexture(ImageReconstruction, kImageReconstruction, "spectrums", _rayTracingData.SpectrumBuffer);
         ImageReconstruction.SetTexture(kImageReconstruction, "outputTexture", _rayTracingData.OutputTexture);
-        ImageReconstruction.SetVector("rasterSize", new Vector4(Screen.width, Screen.height, 0, 0));
+        ImageReconstruction.SetVector(PathTracingParam._ScreenSize, new Vector4(Screen.width, Screen.height, 0, 0));
     }
 
     void SetComputeBuffer(ComputeShader cs, int kernel, string name, ComputeBuffer buffer)
@@ -583,10 +583,10 @@ public class WavefrontKernel : TracingKernel
         gpuSceneData.SetComputeShaderGPUData(DebugView, kDebugView);
         DebugView.SetBuffer(kDebugView, "_WorkQueueItems", workItemBuffer);
         DebugView.SetBuffer(kDebugView, "RNGs", samplerBuffer);
-        DebugView.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        DebugView.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
 
-        DebugView.SetMatrix("RasterToCamera", gpuSceneData.RasterToCamera);
-        DebugView.SetMatrix("CameraToWorld", camera.cameraToWorldMatrix);
+        DebugView.SetMatrix(PathTracingParam._RasterToCamera, gpuSceneData.RasterToCamera);
+        DebugView.SetMatrix(PathTracingParam._CameraToWorld, camera.cameraToWorldMatrix);
         DebugView.SetFloat("cameraFar", camera.farClipPlane);
         SetTextures(DebugView, kDebugView);
         DebugView.SetTexture(kDebugView, "outputTexture", _rayTracingData.OutputTexture);
@@ -615,7 +615,7 @@ public class WavefrontKernel : TracingKernel
         RayTravel.SetBuffer(kRayTraversal, "_RayMissQueue", escapeRayQueueBuffer);
         RayTravel.SetBuffer(kRayTraversal, "_HitLightQueue", hitLightQueueBuffer);
         RayTravel.SetBuffer(kRayTraversal, "_MaterialShadingQueue", materialShadingQueueBuffer);
-        RayTravel.SetVector("rasterSize", new Vector4(rasterWidth, rasterHeight, 0, 0));
+        RayTravel.SetVector(PathTracingParam._ScreenSize, new Vector4(rasterWidth, rasterHeight, 0, 0));
         //RayTravel.SetFloat("cameraConeSpreadAngle", cameraConeSpreadAngle);
         SetTextures(RayTravel, kRayTraversal);
 

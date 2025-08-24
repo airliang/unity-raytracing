@@ -1,3 +1,4 @@
+#include "rtCommon.hlsl"
 #include "GPUStructs.hlsl"
 #include "colorConvert.hlsl"
 // Each #kernel tells which function to compile; you can have many kernels
@@ -5,8 +6,8 @@
 
 // Create a RenderTexture with enableRandomWrite flag and set it
 // with cs.SetTexture
-float2 rasterSize;
-int framesNum;
+//float2 rasterSize;
+//int framesNum;
 float _Exposure;
 StructuredBuffer<PathRadiance> pathRadiances;
 RWTexture2D<float4>  spectrums;
@@ -17,15 +18,15 @@ RWTexture2D<half4> outputTexture;
 [numthreads(8,8,1)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
         return;
 
-    int threadId = id.x + id.y * rasterSize.x;
+    int threadId = id.x + id.y * _ScreenSize.x;
     float4 color;
     PathRadiance pathRadiance = pathRadiances[threadId];
     float3 radiance = pathRadiance.li.rgb;
     float3 spectrum = spectrums[id.xy];
-    float t = 1.0f / framesNum;
+    float t = 1.0f / _FrameIndex;
     float3 curSpectrum = lerp(spectrum, radiance, t);
     //spectrum.rgb += radiance;
     spectrums[id.xy] = float4(curSpectrum, 1);

@@ -189,8 +189,8 @@ float3 PathLi(Ray ray, uint2 id, inout RNG rng)
             {
                 //half2 surfaceBeta = RayConeGBuffer[id.xy];
                 //isect.spreadAngle = cameraConeSpreadAngle;
-                surfaceBeta.y = cameraConeSpreadAngle + surfaceBeta.x;
-                isect.coneWidth = cameraConeSpreadAngle * isect.hitT;
+                surfaceBeta.y = _CameraConeSpreadAngle + surfaceBeta.x;
+                isect.coneWidth = _CameraConeSpreadAngle * isect.hitT;
             }
             else
             {

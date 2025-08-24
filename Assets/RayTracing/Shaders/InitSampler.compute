@@ -1,13 +1,14 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel CSInitSampler
+#include "rtCommon.hlsl"
 #include "sampler.hlsl"
 
-float2 rasterSize;
+//float2 rasterSize;
 
 [numthreads(8,8,1)]
 void CSInitSampler(uint3 id : SV_DispatchThreadID)
 {
-    if (id.x >= (uint)rasterSize.x || id.y >= (uint)rasterSize.y)
+    if (id.x >= (uint) _ScreenSize.x || id.y >= (uint) _ScreenSize.y)
         return;
 
     uint s0 = 0;
@@ -20,7 +21,7 @@ void CSInitSampler(uint3 id : SV_DispatchThreadID)
         v0 += ((v1 << 4) + 0xa341316c) ^ (v1 + s0) ^ ((v1 >> 5) + 0xc8013ea4);
         v1 += ((v0 << 4) + 0xad90777d) ^ (v0 + s0) ^ ((v0 >> 5) + 0x7e95761e);
     }
-    RNGs[id.x + id.y * rasterSize.x].state = v0;
+    RNGs[id.x + id.y * _ScreenSize.x].state = v0;
 }
 
 

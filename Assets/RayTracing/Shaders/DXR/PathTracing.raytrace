@@ -1,5 +1,5 @@
 #include "TraceRay.hlsl"
-
+#include "TracingDebug.hlsl"
 RWTexture2D<float4> _Spectrums;
 RWTexture2D<float4> _Output;
 #pragma enable_d3d11_debug_symbols
@@ -15,10 +15,9 @@ void MyRaygenShader()
 
     RNG rng = GetRNG(threadId);
     float3 color = 0;
+    RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
     if (_DebugView == 0)
     {
-        RayDesc rayDescriptor = GenerateRay(dispatchIdx, rng);
-
         float3 li = PathLi(rayDescriptor, threadId, dispatchIdx, rng);
         float3 radiance = li; 
         //third step: output the final radiance to texture
@@ -31,11 +30,7 @@ void MyRaygenShader()
     }
     else
     {
-        if (_DebugView == 8)
-        {
-            float2 u = Get2D(rng);
-            color = float3(u, Get1D(rng));
-        }
+        color = TracingDebug(threadId, rayDescriptor, _DebugView, _RayConeGBuffer[dispatchIdx.xy], _CameraConeSpreadAngle, rng);
     }
     //color = curSpectrum;
 
@@ -47,12 +42,6 @@ void MyRaygenShader()
 void MissShader(inout PathPayload payLoad : SV_RayPayload)
 {
     payLoad.hitResult = HIT_MISS;
-    //rayIntersection.color = float4(0.0f, 0.0f, 0.0f, 1.0f);
-    if (_ENVIRONMENT_MAP_ENABLE)
-    {
-
-    }
-
 }
 
 

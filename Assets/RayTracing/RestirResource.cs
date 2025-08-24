@@ -9,5 +9,5 @@ public class RestirResource : ScriptableObject
 {
     public RayTracingShader GenerateSamples;
     public ComputeShader SpatialReuse;
-    public ComputeShader PixelShading;
+    public RayTracingShader PixelShading;
 }

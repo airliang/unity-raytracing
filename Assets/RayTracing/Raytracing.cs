@@ -67,7 +67,7 @@ public class Raytracing : MonoBehaviour
         }
         else if (_RayTracingData._kernelType == RaytracingData.KernelType.DXR)
         {
-            _RaytracingKernel = new DXRKernel(dxrPTResource);
+            _RaytracingKernel = new DXRKernel(dxrPTResource, restirResource);
         }
 
         cameraComponent = GetComponent<Camera>();
