@@ -129,7 +129,7 @@ struct PathPayload
 {
     int hitResult;
     uint instanceID;
-    //uint bounce;
+    uint isShadowRay;
     uint threadID;
     //float coneWidth;
     //float2 barycentrics;
@@ -137,6 +137,11 @@ struct PathPayload
     RayCone rayCone;
     HitSurface hitSurface;
     //Material  material;
+};
+
+struct ShadowPayload
+{
+    bool hit;
 };
 
 typedef BuiltInTriangleIntersectionAttributes AttributeData;

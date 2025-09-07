@@ -1,6 +1,7 @@
 
 #include "restir_common.hlsl"
-
+#pragma enable_d3d11_debug_symbols
+#pragma enable_ray_tracing_shader_debug_symbols
 RWTexture2D<float4> _Output;
 RWStructuredBuffer<ReservoirSample> _ReservoirSamples;
 StructuredBuffer<ReservoirSample> _TemporalReuseSamples;
@@ -39,7 +40,7 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
 
     float weightSum = 0;
     float pdfSum = 0;
-    float index = 0;
+
     for (int i = 0; i < M; ++i)
     {
         //candidates[i] = (ReservoirSample)0;
@@ -57,15 +58,12 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
         float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
         float scatteringPdf = 0;
         float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
-        float phat = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
-        AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
-
-        if (lightPdf == 0)
+        float phat = EvaluatePHat(Li, f, surface.normal, wi);
+        if (phat > 0)
         {
-            outputSample.weightSum = 0;
+            AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
         }
 
-        index += 1.0f;
         // float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
         // weight[i] = 0;
         // if (!IsBlack(f) && scatteringPdf > 0)
@@ -106,7 +104,7 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
             float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
             float scatteringPdf = 0;
             float3 f = bsdfSample.reflectance;
-            float phat = EvaluatePHat(Li, f, abs(dot(wi, surface.normal)));
+            float phat = EvaluatePHat(Li, f, surface.normal, wi);
             AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
         }
     }
@@ -156,37 +154,31 @@ void GenerateSamples()
             ReservoirSample outputSample = (ReservoirSample)0;
             ResampleImportanceSampling(hitCur, material, rng, outputSample);
 
-            bool visible = TestRayVisibility(hitCur.position, outputSample.position, hitCur.normal, ShadowEpsilon);
+            if (outputSample.targetFunction > 0)
+            {
+                bool visible = TestRayVisibility(hitCur.position, outputSample.position, hitCur.normal, ShadowEpsilon);
 
-            if (!visible)
-            {
-                outputSample.weight = 0; // Reset if not visible
-                outputSample.weightSum = 0;
-                //li = 1;
-            }
-            else
-            {
-                li = material.kd;
-                // if (outputSample.weightSum > 0)
-                // {
-                //     AreaLight light = _Lights[outputSample.lightIndex];
-                //     li = material.kd; //outputSample.weightSum;//outputSample.targetFunction;//EvaluatePHat(hitCur, outputSample.position, 0, light.radiance, -rayDescriptor.Direction, material) * outputSample.weight;
-                //     if (isnan(outputSample.weightSum))
-                //     {
-                //         li = float3(0.0, 1, 1);
-                //     }
-                // }
-                
-                if (isnan(outputSample.weightSum))
+                if (!visible)
                 {
-                    //li = float3(0.0, 1, 1);
+                    outputSample.weight = 0; // Reset if not visible
+                    outputSample.weightSum = 0;
+                    li = 0;
                 }
-                // else if (outputSample.weightSum == 0.0)
-                // {
-                //     li = float3(0.5, 0, 0);
-                // }
+                else
+                {
+                    li = material.kd;
+                    if (outputSample.weightSum > 0)
+                    {
+                        AreaLight light = _Lights[outputSample.lightIndex];
+                        li = EvaluatePHat(hitCur, outputSample.position, 0, light.radiance, -rayDescriptor.Direction, material) * outputSample.weight;
+                        if (isnan(outputSample.weightSum))
+                        {
+                            li = float3(0.0, 1, 1);
+                        }
+                    }
+                
+                }
             }
-            
             
             _ReservoirSamples[threadId] = outputSample;
         }

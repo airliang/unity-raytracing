@@ -297,7 +297,7 @@ public static class JsonScene
                 }
 
                 Light lightComponent = meshRenderers[i].gameObject.GetComponent<Light>();
-                if (lightComponent != null && lightComponent.type == LightType.Area)
+                if (lightComponent != null && lightComponent.type == LightType.Rectangle)
                 {
                     UnityEngine.Material lightMaterial = meshRenderers[i].sharedMaterial;
                     if (lightMaterial != null && lightMaterial.shader.name == "RayTracing/AreaLight")

@@ -25,7 +25,7 @@ public class AreaLightResource
 {
 
     //public List<Vector2> triangleDistributions = new List<Vector2>();
-    //ÔÚGPUDistributionDiscriptÖÐµÄµØÖ·
+    //ï¿½ï¿½GPUDistributionDiscriptï¿½ÐµÄµï¿½Ö·
     public int discriptAddress = -1;
     public int meshIndex = -1;
     public Distribution1D triangleDistributions = null;
@@ -309,7 +309,7 @@ public class GPUSceneData
         Dictionary<Mesh, List<int>> meshHandlesDict = new Dictionary<Mesh, List<int>>();
         int lightObjectsNum = 0;
 
-        //ÏÈÉú³ÉMeshHandle
+        //ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½MeshHandle
         int meshHandleIndex = 0;
 
         for (int i = 0; i < meshRenderers.Length; ++i)
@@ -329,7 +329,7 @@ public class GPUSceneData
             }
 
             Light lightComponent = meshRenderer.GetComponent<Light>();
-            if (lightComponent != null && lightComponent.type == LightType.Area)
+            if (lightComponent != null && lightComponent.type == LightType.Rectangle)
             {
                 lightObjectsNum++;
             }
@@ -400,7 +400,7 @@ public class GPUSceneData
         }
 
         List<RuntimeEntityDebug> runtimeEntityDebugs = new List<RuntimeEntityDebug>();
-        //Éú³ÉmeshinstanceºÍ¶ÔÓ¦µÄmaterial
+        //ï¿½ï¿½ï¿½ï¿½meshinstanceï¿½Í¶ï¿½Ó¦ï¿½ï¿½material
         meshHandleIndex = 0;
         for (int i = 0; i < meshRenderers.Length; ++i)
         {
@@ -425,7 +425,7 @@ public class GPUSceneData
 
             RuntimeEntityDebug entityDebug = meshRenderer.gameObject.AddComponent<RuntimeEntityDebug>();
             runtimeEntityDebugs.Add(entityDebug);
-            if (lightComponent != null && lightComponent.type == LightType.Area)
+            if (lightComponent != null && lightComponent.type == LightType.Rectangle)
             {
                 Profiler.BeginSample("Lights data fetching");
                 AreaLightResource areaLight = null;
@@ -510,6 +510,10 @@ public class GPUSceneData
 
             List<int> meshHandleIndices = null;
             meshHandlesDict.TryGetValue(mesh, out meshHandleIndices);
+            if (meshHandleIndices == null)
+            {
+                Debug.LogError("meshHandleIndices == null, mesh.name = " + mesh.name);
+            }
             Profiler.BeginSample("SetupMaterials");
             for (int sm = 0; sm < mesh.subMeshCount; ++sm)
             {

@@ -1,8 +1,8 @@
 #ifndef RESTIR_HLSL
 #define RESTIR_HLSL
 
-#define M 1
-#define M_BSDF 0
+#define M 8
+#define M_BSDF 1
 
 #include "../TraceRay.hlsl"
 
@@ -17,13 +17,19 @@ struct ReservoirSample
 };
 
 
-float EvaluatePHat(float3 li, float3 f, float cos)
+float EvaluatePHat(float3 li, float3 f, float3 surfaceNormal, float3 wi)
 {
+    float cos = dot(surfaceNormal, wi);
+    if (cos < 0)
+        return 0;
     return Luminance(li * f * cos);
 }
 
 float3 EvaluatePHat(HitSurface hitSurface, float3 lightPos, float3 lightNormal, float3 li, float3 wi, Material material)
 {
+    float cos = dot(hitSurface.normal, wi);
+    if (cos < 0)
+        return 0;
     float3 dpdu = float3(1, 0, 0);
     float3 dpdv = float3(0, 1, 0);
     CoordinateSystem(hitSurface.normal, dpdu, dpdv);

@@ -652,8 +652,8 @@ public static class SceneExport
     private static void ExportRayTracingScene()
     {
         JsonScene.Scene scene = new JsonScene.Scene();
-        MeshRenderer[] meshRenderers = GameObject.FindObjectsOfType<MeshRenderer>();
-        Raytracing raytracing = GameObject.FindObjectOfType<Raytracing>();
+        MeshRenderer[] meshRenderers = GameObject.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
+        Raytracing raytracing = GameObject.FindFirstObjectByType<Raytracing>();
         if (raytracing == null)
         {
             EditorUtility.DisplayDialog("Confirm", "There is no raytracing component", "OK");
@@ -782,6 +782,7 @@ public static class SceneExport
                 {
                     string meshPath = filePath + entity.mesh;
                     gameObject = GameObject.Instantiate(AssetDatabase.LoadAssetAtPath(meshPath, typeof(GameObject)) as GameObject);
+                    MeshRenderer renderer = gameObject.GetComponent<MeshRenderer>();
                 }
                 else if (entity.meshType.ToLower() == "cube")
                 {
@@ -876,7 +877,7 @@ public static class SceneExport
                 {
                     //arealight
                     Light light = gameObject.AddComponent<Light>();
-                    light.type = LightType.Area;
+                    light.type = LightType.Rectangle;
                     gameObject.name += "_light";
                 }
             }
@@ -914,6 +915,10 @@ public static class SceneExport
             raytracing.megaResource = megaKernelResource;
             WavefrontResource wavefrontResource = AssetDatabase.LoadAssetAtPath("Assets/RayTracing/Wavefront Resource.asset", typeof(WavefrontResource)) as WavefrontResource;
             raytracing.wavefrontResource = wavefrontResource;
+            DXRPTResource dxrResource = AssetDatabase.LoadAssetAtPath("Assets/RayTracing/DXRPTResource.asset", typeof(DXRPTResource)) as DXRPTResource;
+            raytracing.dxrPTResource = dxrResource;
+            RestirResource restirResource = AssetDatabase.LoadAssetAtPath("Assets/RayTracing/Restir Resource.asset", typeof(RestirResource)) as RestirResource;
+            raytracing.restirResource = restirResource;
 
             Material blitMaterial = AssetDatabase.LoadAssetAtPath("Assets/RayTracing/Materials/Blit.mat", typeof(Material)) as Material;
             raytracing._BlitMaterial = blitMaterial;

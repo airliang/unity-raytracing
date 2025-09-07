@@ -1,12 +1,12 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
+
 
 public class DXRRayTracingManager : Singleton<DXRRayTracingManager>
 {
-    public RayTracingAccelerationStructure rtas = null;
-    private RayTracingShader pathTracing = null;
+    public UnityEngine.Rendering.RayTracingAccelerationStructure rtas = null;
+    private UnityEngine.Rendering.RayTracingShader pathTracing = null;
     private Renderer[] renderers = null;
 
     public void Setup(DXRPTResource resource)
@@ -20,7 +20,7 @@ public class DXRRayTracingManager : Singleton<DXRRayTracingManager>
     {
         if (rtas == null)
         {
-            rtas = new RayTracingAccelerationStructure();
+            rtas = new UnityEngine.Rendering.RayTracingAccelerationStructure();
         }
         else
         {

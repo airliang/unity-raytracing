@@ -78,25 +78,30 @@ half3 TracingDebug(uint id, RayDesc ray, int view, float2 rayCone, float cameraC
             lightPdf *= lightSourcePdf;
             if (lightPdf > 0)
             {
-                bool visible = TestRayVisibility(hitCur.position, samplePointOnLight, hitCur.normal, ShadowEpsilon);
-                color = visible ? Li : float3(0, 0, 0);
-                float3 dpdu = float3(1, 0, 0);
-                float3 dpdv = float3(0, 1, 0);
-                CoordinateSystem(hitCur.normal, dpdu, dpdv);
-                float3 tangent = normalize(dpdu);
-                float3 bitangent = normalize(cross(tangent, hitCur.normal));
-                float3 wiLocal = hitCur.WorldToLocal(wi, tangent, bitangent);
-                float3 woLocal = hitCur.wo;
-                float scatteringPdf = 0;
-                float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
-                if (scatteringPdf == 0)
+                //bool visible = TestRayVisibility(hitCur.position, samplePointOnLight, hitCur.normal, ShadowEpsilon);
+                RayDesc ray = SpawnRay(hitCur.position, samplePointOnLight - hitCur.position, hitCur.normal, 1.0 - ShadowEpsilon);
+                bool visible = TestRayVisibility(ray);
+                if (visible)
                 {
-                    color = float3(1, 0, 0);
-                }
-                else
-                {
-                    float3 beta = f * abs(dot(wi, hitCur.normal)) / lightPdf;
-                    color = Li * beta;
+                    color = Li;
+                    float3 dpdu = float3(1, 0, 0);
+                    float3 dpdv = float3(0, 1, 0);
+                    CoordinateSystem(hitCur.normal, dpdu, dpdv);
+                    float3 tangent = normalize(dpdu);
+                    float3 bitangent = normalize(cross(tangent, hitCur.normal));
+                    float3 wiLocal = hitCur.WorldToLocal(wi, tangent, bitangent);
+                    float3 woLocal = hitCur.wo;
+                    float scatteringPdf = 0;
+                    float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
+                    if (scatteringPdf == 0)
+                    {
+                        color = float3(1, 0, 0);
+                    }
+                    else
+                    {
+                        float3 beta = f * abs(dot(wi, hitCur.normal)) / lightPdf;
+                        color = Li * beta;
+                    }
                 }
             }
             //else

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.Experimental.Rendering;
+
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
@@ -335,7 +335,7 @@ public class DXRKernel : TracingKernel
 
             Light lightComponent = meshRenderer.GetComponent<Light>();
 
-            if (lightComponent != null && lightComponent.type == LightType.Area)
+            if (lightComponent != null && lightComponent.type == LightType.Rectangle)
             {
                 Material lightMaterial = meshRenderer.sharedMaterial;
                 Vector3 lightRadiance = Vector3.zero;
@@ -378,44 +378,44 @@ public class DXRKernel : TracingKernel
             if (!lightMeshList.Contains(mesh))
             {
                 AreaLightMeshData areaLightMeshData = new AreaLightMeshData() { vertexOffset = vertexOffset, triangleOffset = triangleOffset };
-                
-                lightMeshDatas.Add(mesh, areaLightMeshData );
+
+                lightMeshDatas.Add(mesh, areaLightMeshData);
                 lightMeshList.Add(mesh);
-
-                
-                mesh.GetVertices(lightMeshVertices);
-                mesh.GetUVs(0, meshUVs);
-                mesh.GetVertices(meshVertices);
-                mesh.GetNormals(meshNormals);
-
-                for (int v = 0; v < lightMeshVertices.Count; ++v)
-                {
-                    GPUVertex vertexTmp = new GPUVertex();
-                    vertexTmp.position = lightMeshVertices[v];
-                    vertexTmp.uv = meshUVs.Count == 0 ? Vector2.zero : meshUVs[v];
-                    vertexTmp.normal = meshNormals[v];
-                    gpuLightVertices.Add(vertexTmp);
-                }
-
-                for (int sm = 0; sm < mesh.subMeshCount; ++sm)
-                {
-                    List<int> meshTriangles = new List<int>();
-                    mesh.GetTriangles(meshTriangles, sm);
-
-                    SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
-
-                    for (int j = 0; j < subMeshDescriptor.indexCount / 3; ++j)
-                    {
-                        Vector3Int triangleIndex = new Vector3Int(meshTriangles[j * 3 + subMeshDescriptor.indexStart] + vertexOffset,
-                            meshTriangles[j * 3 + subMeshDescriptor.indexStart + 1] + vertexOffset, meshTriangles[j * 3 + subMeshDescriptor.indexStart + 2] + vertexOffset);
-                        lightTriangles.Add(triangleIndex);
-                    }
-                }
-
-                vertexOffset += lightMeshVertices.Count;
-                gpuAreaLight.triangleLightOffset = triangleOffset;
-                triangleOffset += lightTriangles.Count;
             }
+
+            mesh.GetVertices(lightMeshVertices);
+            mesh.GetUVs(0, meshUVs);
+            mesh.GetVertices(meshVertices);
+            mesh.GetNormals(meshNormals);
+
+            for (int v = 0; v < lightMeshVertices.Count; ++v)
+            {
+                GPUVertex vertexTmp = new GPUVertex();
+                vertexTmp.position = lightMeshVertices[v];
+                vertexTmp.uv = meshUVs.Count == 0 ? Vector2.zero : meshUVs[v];
+                vertexTmp.normal = meshNormals[v];
+                gpuLightVertices.Add(vertexTmp);
+            }
+
+            for (int sm = 0; sm < mesh.subMeshCount; ++sm)
+            {
+                List<int> meshTriangles = new List<int>();
+                mesh.GetTriangles(meshTriangles, sm);
+
+                SubMeshDescriptor subMeshDescriptor = mesh.GetSubMesh(sm);
+
+                for (int j = 0; j < subMeshDescriptor.indexCount / 3; ++j)
+                {
+                    Vector3Int triangleIndex = new Vector3Int(meshTriangles[j * 3 + subMeshDescriptor.indexStart] + vertexOffset,
+                        meshTriangles[j * 3 + subMeshDescriptor.indexStart + 1] + vertexOffset, meshTriangles[j * 3 + subMeshDescriptor.indexStart + 2] + vertexOffset);
+                    lightTriangles.Add(triangleIndex);
+                }
+            }
+
+            vertexOffset += lightMeshVertices.Count;
+            gpuAreaLight.triangleLightOffset = triangleOffset;
+            triangleOffset += lightTriangles.Count;
+            
 
             AreaLightMeshData relativeLightMeshData;
             lightMeshDatas.TryGetValue(mesh, out relativeLightMeshData);
@@ -932,7 +932,7 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalInt(DXRPathTracingParam._FrameIndex, framesNum);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MinDepth, _rayTracingData.MinDepth);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MaxDepth, _rayTracingData.MaxDepth);
-            cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count + (envLight != null ? 1 : 0));
+            cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count);
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._RNGs, RNGBuffer);
             cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);

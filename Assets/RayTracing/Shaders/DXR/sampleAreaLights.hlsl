@@ -91,14 +91,14 @@ float3 SampleLightRadiance(AreaLight light, float3 intersectPoint, inout RNG rng
     wi = normalize(wi);
     float cos = dot(lightNormal, -wi);
     float absCos = abs(cos);
-    if (isinf(attenuation) || absCos == 0)
-    {
-        lightPdf = 0;
-        return 0;
-    }
+    //if (isinf(attenuation) || absCos == 0)
+    //{
+    //    lightPdf = 0;
+    //    return 0;
+    //}
     Li /= attenuation;
     
-    lightPdf = /*attenuation*/1.0 / absCos;
+    lightPdf = max(1.0 / cos, 0);
     return cos > 0 ? Li : 0;
 }
 

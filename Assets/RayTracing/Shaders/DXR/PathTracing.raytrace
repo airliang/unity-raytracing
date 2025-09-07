@@ -3,6 +3,7 @@
 RWTexture2D<float4> _Spectrums;
 RWTexture2D<float4> _Output;
 #pragma enable_d3d11_debug_symbols
+#pragma enable_ray_tracing_shader_debug_symbols
 //#pragma multi_compile _ _ENVIRONMENT_MAP_ENABLE
 //#pragma max_recursion_depth 2
 
@@ -43,5 +44,4 @@ void MissShader(inout PathPayload payLoad : SV_RayPayload)
 {
     payLoad.hitResult = HIT_MISS;
 }
-
 

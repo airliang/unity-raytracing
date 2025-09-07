@@ -147,8 +147,9 @@ bool TestRayVisibility(RayDesc ray)
     uint2 dispatchIdx = DispatchRaysIndex().xy;
     uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
     payLoad.threadID = threadId;
+    payLoad.isShadowRay = 1;
     payLoad.rayCone = (RayCone)0;
-    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER | RAY_FLAG_CULL_BACK_FACING_TRIANGLES, 0xFF, 0, 1, 0, ray, payLoad);
+    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
     return payLoad.hitResult == HIT_MISS;
 }
 
@@ -392,16 +393,16 @@ float3 MIS_ShadowRay(LightSource lightSource, HitSurface surface, Material mater
         if (!IsBlack(f) && scatteringPdf > 0)
         {
             RayDesc ray = SpawnRay(surface.position, samplePointOnLight - surface.position, surface.normal, 1.0 - ShadowEpsilon);
+            /*
             PathPayload payLoad;
-
-            //payLoad.direction = ray.Direction;
             payLoad.instanceID = -1;
-            //payLoad.isHitLightCheck = 0;
             payLoad.hitResult = HIT_MISS;
 
             TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
 
             bool shadowRayVisible = payLoad.hitResult == HIT_MISS;
+            */
+            bool shadowRayVisible = TestRayVisibility(ray);
             if (shadowRayVisible)
             {
                 f *= abs(dot(wi, surface.normal));
