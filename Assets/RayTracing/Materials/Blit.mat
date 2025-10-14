@@ -13,7 +13,7 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords: []
   m_InvalidKeywords:
-  - _HDRTYPE_DEFAULT
+  - _HDRTYPE_FILMIC
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -70,7 +70,7 @@ Material:
     - _GlossMapScale: 1
     - _Glossiness: 0.5
     - _GlossyReflections: 1
-    - _HDRType: 1
+    - _HDRType: 0
     - _Metallic: 0
     - _Mode: 0
     - _OcclusionStrength: 1

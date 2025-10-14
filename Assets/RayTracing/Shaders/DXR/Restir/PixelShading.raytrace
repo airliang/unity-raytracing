@@ -1,0 +1,61 @@
+#include "restir_common.hlsl"
+
+
+RWTexture2D<float4> _Spectrums;
+RWTexture2D<float4> _Output;
+StructuredBuffer<ReservoirSample> _ReservoirSamples;
+StructuredBuffer<HitSurface> _FirstHitSurfaces;
+#pragma max_recursion_depth 1
+
+float3 EstimateDirectLighting(ReservoirSample lightSample, HitSurface surface, Material material, 
+    uint threadId, RayCone rayCone, inout RNG rng, out PathVertex pathVertex, out bool breakPath)
+{
+    float3 wi = normalize(lightSample.position - surface.position);
+    RayDesc ray = SpawnRay(surface.position, lightSample.position - surface.position, surface.normal, 1.0 - ShadowEpsilon);
+    PathPayload payLoad;
+
+    //payLoad.direction = ray.Direction;
+    payLoad.instanceID = -1;
+    //payLoad.isHitLightCheck = 0;
+    payLoad.hitResult = HIT_MISS;
+
+    TraceRay(_AccelerationStructure, RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER, 0xFF, 0, 1, 0, ray, payLoad);
+
+    bool shadowRayVisible = payLoad.hitResult == HIT_MISS;
+    if (shadowRayVisible)
+    {
+        f *= abs(dot(wi, surface.normal));
+        //sample psdf and compute the mis weight
+        float weight =
+            PowerHeuristic(1, lightPdf, 1, scatteringPdf);
+        ld = f * Li * weight / lightPdf;
+    }
+}
+
+[shader("raygeneration")]
+void PixelShading()
+{
+    uint2 dispatchIdx = DispatchRaysIndex().xy;
+   
+    uint threadId = dispatchIdx.x + dispatchIdx.y * DispatchRaysDimensions().x;
+
+    ReservoirSample sample = _ReservoirSamples[threadId];
+    HitSurface hitSurface = _FirstHitSurfaces[threadId];
+
+    PathVertex pathVertex = (PathVertex)0;
+
+    RayCone preCone;
+    RayCone rayCone = (RayCone)0;
+    rayCone.spreadAngle = _CameraConeSpreadAngle + surfaceBeta.x;
+
+    bool breakPath = false;
+    float3 ld = EstimateDirectLighting(hitCur, material, threadId, rayCone, rng, pathVertex, breakPath);
+    float3 spectrum = _Spectrums[id.xy];
+    float t = 1.0f / _FrameIndex;
+    float3 curSpectrum = lerp(spectrum, radiance, t);
+        //spectrum.rgb += radiance;
+    _Spectrums[id.xy] = float4(curSpectrum, 1);
+    //color = curSpectrum;
+    
+    _Output[id.xy] = float4(curSpectrum, 1);
+}

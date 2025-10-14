@@ -6,6 +6,15 @@ using UnityEngine;
 using UnityEngine.Profiling;
 using UnityEngine.Rendering;
 
+public struct GPUHitSurface
+{
+    Vector3 position;
+    Vector3 normal;
+    Vector3 wo;   //local space
+    float hitT;
+    Vector2 padding;
+}
+
 public class DXRKernel : TracingKernel
 {
     RaytracingData _rayTracingData;
@@ -14,15 +23,19 @@ public class DXRKernel : TracingKernel
     private RayTracingShader pathTracing = null;
     private RayTracingShader generateReservoirSamples = null;
     private ComputeShader spatialReuse = null;
+    private ComputeShader imageReconstruction = null;
     private MeshRenderer[] renderers = null;
     RayTracingSubMeshFlags[] m_SubMeshFlagArray = new RayTracingSubMeshFlags[k_MaxNumSubMeshes];
     Material gBufferMaterial = null;
     CommandBuffer renderGBufferCmd = null;
     private CommandBuffer cmdDXR = null;
+    private int kernelImageReconstruction = -1;
 
     public Matrix4x4 _RasterToScreen;
     public Matrix4x4 _RasterToCamera;
     public Matrix4x4 _WorldToRaster;
+    public Matrix4x4 _InvCameraProjMatrix;
+    public Matrix4x4 _PreframeInvCameraProj;
     public float cameraConeSpreadAngle = 0;
     GPUFilterData gpuFilterData;
 
@@ -52,6 +65,7 @@ public class DXRKernel : TracingKernel
     ComputeBuffer lightVerticesBuffer;
 
     ComputeBuffer materialBuffer;
+    ComputeBuffer hitSurfacesBuffer;
 
     EnviromentLight envLight = null;
     ComputeBuffer envLightMarginalBuffer;
@@ -111,6 +125,7 @@ public class DXRKernel : TracingKernel
         public float weight;
         public uint numStreams;
         public uint lightIndex;
+        public Vector4 targetFunctionFull;
     }
 
     public struct GPUInstanceTransform
@@ -123,7 +138,8 @@ public class DXRKernel : TracingKernel
     {
         public static int _AccelerationStructure = -1;
         public static int _Output = -1;
-        public static int _InvCameraViewProj = -1;
+        public static int _InvViewProj = -1;
+        public static int _PreframeInvViewProj = -1;
         public static int _CameraPosWS = -1;
         public static int _CameraFarDistance = -1;
         public static int _RasterToCamera = -1;
@@ -132,6 +148,7 @@ public class DXRKernel : TracingKernel
         public static int _LensRadius = -1;
         public static int _FocalLength = -1;
         public static int _FrameIndex = -1;
+        public static int _ScreenSize = -1;
         public static int _MaxDepth = -1;
         public static int _MinDepth = -1;
         public static int _LightsNum = -1;
@@ -147,6 +164,7 @@ public class DXRKernel : TracingKernel
         public static int _Spectrums = -1;
         public static int _DebugView = -1;
         public static int _Materials = -1;
+        public static int _HitSurfaces = -1;
         //public static int _InstanceTransforms = -1;
         public static int _EnvmapRotation = -1;
         public static int _EnvironmentColor = -1;
@@ -180,6 +198,7 @@ public class DXRKernel : TracingKernel
             InitRandom = resourceData.InitRandom;
 
             generateReservoirSamples = restirResource.GenerateSamples;
+            imageReconstruction = restirResource.ImageReconstruction;
         }
         
     }
@@ -188,7 +207,8 @@ public class DXRKernel : TracingKernel
     {
         DXRPathTracingParam._AccelerationStructure = Shader.PropertyToID("_AccelerationStructure");
         DXRPathTracingParam._Output = Shader.PropertyToID("_Output");
-        DXRPathTracingParam._InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
+        DXRPathTracingParam._InvViewProj = Shader.PropertyToID("_InvViewProj");
+        DXRPathTracingParam._PreframeInvViewProj = Shader.PropertyToID("_PreframeInvCameraViewProj");
         DXRPathTracingParam._CameraPosWS = Shader.PropertyToID("_CameraPosWS");
         DXRPathTracingParam._CameraFarDistance = Shader.PropertyToID("_CameraFarDistance");
         DXRPathTracingParam._RasterToCamera = Shader.PropertyToID("_RasterToCamera");
@@ -197,6 +217,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._LensRadius = Shader.PropertyToID("_LensRadius");
         DXRPathTracingParam._FocalLength = Shader.PropertyToID("_FocalLength");
         DXRPathTracingParam._FrameIndex = Shader.PropertyToID("_FrameIndex");
+        DXRPathTracingParam._ScreenSize = Shader.PropertyToID("_ScreenSize");
         DXRPathTracingParam._MaxDepth = Shader.PropertyToID("_MaxDepth");
         DXRPathTracingParam._MinDepth = Shader.PropertyToID("_MinDepth");
         DXRPathTracingParam._LightsNum = Shader.PropertyToID("_LightsNum");
@@ -212,6 +233,7 @@ public class DXRKernel : TracingKernel
         DXRPathTracingParam._Spectrums = Shader.PropertyToID("_Spectrums");
         DXRPathTracingParam._DebugView = Shader.PropertyToID("_DebugView");
         DXRPathTracingParam._Materials = Shader.PropertyToID("_Materials");
+        DXRPathTracingParam._HitSurfaces = Shader.PropertyToID("_HitSurfaces");
         //DXRPathTracingParam._InstanceTransforms = Shader.PropertyToID("_InstanceTransforms");
         DXRPathTracingParam._EnvironmentColor = Shader.PropertyToID("_EnvironmentColor");
         DXRPathTracingParam._EnvmapRotation = Shader.PropertyToID("_EnvmapRotation");
@@ -295,6 +317,7 @@ public class DXRKernel : TracingKernel
         lightTrianglesBuffer?.Release();
         lightVerticesBuffer?.Release();
         materialBuffer?.Release();
+        hitSurfacesBuffer?.Release();
 
         envLightMarginalBuffer?.Release();
         envLightConditionBuffer?.Release();
@@ -713,7 +736,7 @@ public class DXRKernel : TracingKernel
 
             if (rtas == null)
             {
-                renderers = GameObject.FindObjectsOfType<MeshRenderer>();
+                renderers = GameObject.FindObjectsByType<MeshRenderer>(FindObjectsSortMode.None);
                 Dictionary<MeshRenderer, uint> meshRenderIDs = new Dictionary<MeshRenderer, uint>();
                 SetupLightsData(renderers, meshRenderIDs);
                 SetupEnviromentMap();
@@ -783,7 +806,7 @@ public class DXRKernel : TracingKernel
             {
                 InitRestir();
             }
-
+            framesNum = 0;
             RaytracingStates.states = RaytracingStates.States.Rendering;
             yield return null;
         }
@@ -791,6 +814,12 @@ public class DXRKernel : TracingKernel
 
     void PrepareGPUData()
     {
+        if (hitSurfacesBuffer == null)
+        {
+            hitSurfacesBuffer = new ComputeBuffer(_rayTracingData.OutputTexture.width * _rayTracingData.OutputTexture.height,
+                Marshal.SizeOf(typeof(GPUHitSurface)), ComputeBufferType.Structured);
+        }
+
         Filter filter = gpuFilterData.filter;
 
         Vector2Int filterSize = filter.GetDistributionSize();
@@ -820,7 +849,7 @@ public class DXRKernel : TracingKernel
         }
     }
 
-    void SetRaytracingShaderParams(RayTracingShader shader, CommandBuffer cmd)
+    void SetRaytracingShaderParams(RayTracingShader shader, CommandBuffer cmd, Camera camera)
     {
         Filter filter = gpuFilterData.filter;
         Vector2Int filterSize = filter.GetDistributionSize();
@@ -842,6 +871,9 @@ public class DXRKernel : TracingKernel
         cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightTriangles, lightTrianglesBuffer);
         cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._LightVertices, lightVerticesBuffer);
         cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._TriangleLights, triangleLightsBuffer);
+
+        cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
+        cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
 
         if (envLight != null && envLight.envmapDistributions != null)
         {
@@ -889,9 +921,35 @@ public class DXRKernel : TracingKernel
             cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._EnvironmentLightPmf, _rayTracingData._EnviromentMapEnable ? _rayTracingData._EnvironmentLightPmf : 0);
         }
 
-        cmdDXR.SetRayTracingShaderPass(shader, "RayTracing");
-        cmdDXR.SetRayTracingAccelerationStructure(shader, DXRPathTracingParam._AccelerationStructure, rtas);
-        cmdDXR.SetRayTracingTextureParam(shader, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
+        cmd.SetRayTracingShaderPass(shader, "RayTracing");
+        cmd.SetRayTracingAccelerationStructure(shader, DXRPathTracingParam._AccelerationStructure, rtas);
+        cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
+
+        /*
+        var projMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
+        var viewMatrix = camera.worldToCameraMatrix;
+        var viewProjMatrix = projMatrix * viewMatrix;
+        var invViewProjMatrix = Matrix4x4.Inverse(viewProjMatrix);
+        cmd.SetRayTracingMatrixParam(shader, DXRPathTracingParam._InvViewProj, invViewProjMatrix);
+        cmd.SetRayTracingVectorParam(shader, DXRPathTracingParam._CameraPosWS, camera.transform.position);
+        cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._CameraFarDistance, camera.farClipPlane);
+        cmd.SetRayTracingMatrixParam(shader, DXRPathTracingParam._CameraToWorld, camera.transform.localToWorldMatrix);
+        cmd.SetRayTracingMatrixParam(shader, DXRPathTracingParam._RasterToCamera, _RasterToCamera);
+        cmd.SetRayTracingMatrixParam(shader, DXRPathTracingParam._WorldToRaster, _WorldToRaster);
+        cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._FocalLength, _rayTracingData._FocalLength);
+        cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._LensRadius, _rayTracingData._LensRadius);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._FrameIndex, framesNum);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._MinDepth, _rayTracingData.MinDepth);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._MaxDepth, _rayTracingData.MaxDepth);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._LightsNum, gpuAreaLights.Count);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._RNGs, RNGBuffer);
+        cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
+        cmd.SetRayTracingFloatParam(shader, DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
+        cmd.SetRayTracingTextureParam(shader, DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
+        cmd.SetRayTracingIntParam(shader, DXRPathTracingParam._DebugView, (int)_rayTracingData.viewMode);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._Materials, materialBuffer);
+        cmd.SetRayTracingBufferParam(shader, DXRPathTracingParam._HitSurfaces, hitSurfacesBuffer);
+        */
     }
 
     public bool Update(Camera camera)
@@ -917,11 +975,13 @@ public class DXRKernel : TracingKernel
 
         cmdDXR.BeginSample("DXR Pathtracing");
         {
+            
             var projMatrix = GL.GetGPUProjectionMatrix(camera.projectionMatrix, false);
             var viewMatrix = camera.worldToCameraMatrix;
             var viewProjMatrix = projMatrix * viewMatrix;
             var invViewProjMatrix = Matrix4x4.Inverse(viewProjMatrix);
-            cmdDXR.SetGlobalMatrix(DXRPathTracingParam._InvCameraViewProj, invViewProjMatrix);
+            cmdDXR.SetGlobalMatrix(DXRPathTracingParam._InvViewProj, invViewProjMatrix);
+            cmdDXR.SetGlobalMatrix(DXRPathTracingParam._PreframeInvViewProj, _PreframeInvCameraProj);
             cmdDXR.SetGlobalVector(DXRPathTracingParam._CameraPosWS, camera.transform.position);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraFarDistance, camera.farClipPlane);
             cmdDXR.SetGlobalMatrix(DXRPathTracingParam._CameraToWorld, camera.transform.localToWorldMatrix);
@@ -934,24 +994,43 @@ public class DXRKernel : TracingKernel
             cmdDXR.SetGlobalInt(DXRPathTracingParam._MaxDepth, _rayTracingData.MaxDepth);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._LightsNum, gpuAreaLights.Count);
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._RNGs, RNGBuffer);
-            cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
+            //cmdDXR.SetGlobalTexture(DXRPathTracingParam._RayConeGBuffer, _rayTracingData.RayConeGBuffer);
             cmdDXR.SetGlobalFloat(DXRPathTracingParam._CameraConeSpreadAngle, cameraConeSpreadAngle);
-            cmdDXR.SetGlobalTexture(DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
+            //cmdDXR.SetGlobalTexture(DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
             cmdDXR.SetGlobalInt(DXRPathTracingParam._DebugView, (int)_rayTracingData.viewMode);
             cmdDXR.SetGlobalBuffer(DXRPathTracingParam._Materials, materialBuffer);
+            cmdDXR.SetGlobalBuffer(DXRPathTracingParam._HitSurfaces, hitSurfacesBuffer);
+            
 
             if (_rayTracingData.RestirEnable)
             {
-                SetRaytracingShaderParams(generateReservoirSamples, cmdDXR);
-                cmdDXR.SetGlobalBuffer(DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
-                cmdDXR.SetGlobalBuffer(DXRPathTracingParam._TemporalReuseSamples, temporalReuseSamplesBuffer);
+                SetRaytracingShaderParams(generateReservoirSamples, cmdDXR, camera);
+                cmdDXR.SetRayTracingBufferParam(generateReservoirSamples, DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
+                cmdDXR.SetRayTracingBufferParam(generateReservoirSamples, DXRPathTracingParam._TemporalReuseSamples, temporalReuseSamplesBuffer);
                 cmdDXR.DispatchRays(generateReservoirSamples, "GenerateSamples", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
+
+                if (kernelImageReconstruction == -1 && imageReconstruction != null)
+                {
+                    kernelImageReconstruction = imageReconstruction.FindKernel("CSMain");
+                    
+                }
+                //imageReconstruction.SetBuffer(kernelImageReconstruction, DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
+                //imageReconstruction.SetTexture(kernelImageReconstruction, DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
+                //imageReconstruction.SetTexture(kernelImageReconstruction, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
+                cmdDXR.SetComputeBufferParam(imageReconstruction, kernelImageReconstruction, DXRPathTracingParam._ReservoirSamples, reservoirSamplesBuffer);
+                cmdDXR.SetComputeTextureParam(imageReconstruction, kernelImageReconstruction, DXRPathTracingParam._Spectrums, _rayTracingData.SpectrumBuffer);
+                cmdDXR.SetComputeTextureParam(imageReconstruction, kernelImageReconstruction, DXRPathTracingParam._Output, _rayTracingData.OutputTexture);
+                cmdDXR.SetComputeVectorParam(imageReconstruction, DXRPathTracingParam._ScreenSize, new Vector4(_rayTracingData.OutputTexture.width, _rayTracingData.OutputTexture.height, 0, 0));
+                cmdDXR.SetComputeIntParam(imageReconstruction, DXRPathTracingParam._FrameIndex, framesNum);
+                cmdDXR.DispatchCompute(imageReconstruction, kernelImageReconstruction, (int)_rayTracingData.OutputTexture.width, (int)_rayTracingData.OutputTexture.height, 1);
             }
             else
             {
-                SetRaytracingShaderParams(pathTracing, cmdDXR);
+                SetRaytracingShaderParams(pathTracing, cmdDXR, camera);
                 cmdDXR.DispatchRays(pathTracing, "MyRaygenShader", (uint)_rayTracingData.OutputTexture.width, (uint)_rayTracingData.OutputTexture.height, 1, camera);
             }
+
+            _PreframeInvCameraProj = invViewProjMatrix;
         }
 
             

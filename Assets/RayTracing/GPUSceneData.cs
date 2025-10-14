@@ -130,7 +130,7 @@ public class PathTracingParam
     public static int _Output = -1;
     public static int _InstBVHAddr = -1;
     public static int _BVHNodesNum = -1;
-    public static int _InvCameraViewProj = -1;
+    public static int _InvViewProj = -1;
     public static int _CameraPosWS = -1;
     public static int _CameraFarDistance = -1;
     public static int _RasterToCamera = -1;
@@ -183,7 +183,7 @@ public class PathTracingParam
         _Output = Shader.PropertyToID("_Output");
         _InstBVHAddr = Shader.PropertyToID("_InstBVHAddr");
         _BVHNodesNum = Shader.PropertyToID("_BVHNodesNum");
-        _InvCameraViewProj = Shader.PropertyToID("_InvCameraViewProj");
+        _InvViewProj = Shader.PropertyToID("_InvViewProj");
         _CameraPosWS = Shader.PropertyToID("_CameraPosWS");
         _CameraFarDistance = Shader.PropertyToID("_CameraFarDistance");
         _RasterToCamera = Shader.PropertyToID("_RasterToCamera");

@@ -15,3 +15,4 @@ MonoBehaviour:
   GenerateSamples: {fileID: 4807578003741378534, guid: cb487396bdadbd84687f006c765802d7, type: 3}
   SpatialReuse: {fileID: 7200000, guid: 366a2bfe9b88f1f4485dc9c0a990c484, type: 3}
   PixelShading: {fileID: 4807578003741378534, guid: 87d84aeafcd93f849bcbdc2db9f5e75b, type: 3}
+  ImageReconstruction: {fileID: 7200000, guid: 2540225e300bb9745b528c3c0d2b0b8e, type: 3}

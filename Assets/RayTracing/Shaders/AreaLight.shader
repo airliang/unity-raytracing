@@ -95,7 +95,8 @@ Shader "RayTracing/AreaLight"
                 Interaction intersect = GetHitInteraction(PrimitiveIndex(), attributeData.barycentrics, WorldRayDirection(), hitPos,
                     ObjectToWorld3x4(), WorldToObject3x4());
 
-                payLoad.hitSurface = ConvertFromInteraction(intersect);
+                HitSurface hitSurface = ConvertFromInteraction(intersect);
+                _HitSurfaces[payLoad.threadID] = hitSurface;
                 Material material = (Material) 0;
                 material.kd = 0;
                 _Materials[payLoad.threadID] = material;

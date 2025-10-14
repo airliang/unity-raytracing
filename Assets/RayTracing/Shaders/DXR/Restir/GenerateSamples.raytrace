@@ -58,7 +58,7 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
         float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
         float scatteringPdf = 0;
         float3 f = MaterialBRDF(material, woLocal, wiLocal, scatteringPdf);
-        float phat = EvaluatePHat(Li, f, surface.normal, wi);
+        float phat = EvaluatePHat(Li, f, surface.normal, wi, outputSample.targetFunctionFull);
         if (phat > 0)
         {
             AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
@@ -104,15 +104,18 @@ void ResampleImportanceSampling(HitSurface surface, Material material, inout RNG
             float3 wiLocal = surface.WorldToLocal(wi, tangent, bitangent);
             float scatteringPdf = 0;
             float3 f = bsdfSample.reflectance;
-            float phat = EvaluatePHat(Li, f, surface.normal, wi);
+            float phat = EvaluatePHat(Li, f, surface.normal, wi, outputSample.targetFunctionFull);
             AddReservoirCandidate(outputSample, rng, phat, lightPdf, samplePointOnLight, lightIndex);
         }
     }
 }
 
-void TemporalReuse(uint threadId, inout RNG rng, ReservoirSample temporalSample, inout ReservoirSample outputSample)
+void TemporalReuse(uint2 coord, inout RNG rng, float3 worldPos, ReservoirSample temporalSample, inout ReservoirSample outputSample)
 {
-
+    float4 preframePos = mul(_PreframeInvViewProj, float4(worldPos, 1));
+    preframePos /= preframePos.w;
+    float2 preUV = preframePos.xy * 0.5 + 0.5;
+    uint threadId = coord.x + coord.y * DispatchRaysDimensions().x;
     ReservoirSample sample = _TemporalReuseSamples[threadId];
     outputSample = sample;
 
@@ -135,9 +138,10 @@ void GenerateSamples()
     float3 li = 0;
     TraceRay(_AccelerationStructure, 0, 0xFF, 0, 1, 0, rayDescriptor, payLoad);
     foundIntersect = payLoad.hitResult > 0;
+    ReservoirSample outputSample = (ReservoirSample)0;
     if (foundIntersect)
     {
-        HitSurface hitCur = payLoad.hitSurface;
+        HitSurface hitCur = _HitSurfaces[threadId];//payLoad.hitSurface;
         Material material = _Materials[threadId];//payLoad.material;
 
         if (payLoad.hitResult == HIT_LIGHT)
@@ -148,10 +152,11 @@ void GenerateSamples()
                 AreaLight light = _Lights[lightIndex];
                 li = light.radiance;
             }
+             outputSample.targetFunctionFull = float4(li, 1.0);
         }
         else
         {
-            ReservoirSample outputSample = (ReservoirSample)0;
+            
             ResampleImportanceSampling(hitCur, material, rng, outputSample);
 
             if (outputSample.targetFunction > 0)
@@ -162,6 +167,7 @@ void GenerateSamples()
                 {
                     outputSample.weight = 0; // Reset if not visible
                     outputSample.weightSum = 0;
+                    outputSample.targetFunctionFull = 0;
                     li = 0;
                 }
                 else
@@ -170,19 +176,13 @@ void GenerateSamples()
                     if (outputSample.weightSum > 0)
                     {
                         AreaLight light = _Lights[outputSample.lightIndex];
-                        li = EvaluatePHat(hitCur, outputSample.position, 0, light.radiance, -rayDescriptor.Direction, material) * outputSample.weight;
-                        if (isnan(outputSample.weightSum))
-                        {
-                            li = float3(0.0, 1, 1);
-                        }
+                        li = outputSample.targetFunctionFull.rgb * outputSample.weight;//EvaluatePHat(hitCur, outputSample.position, 0, light.radiance, -rayDescriptor.Direction, material) * outputSample.weight;
                     }
                 
                 }
             }
-            
-            _ReservoirSamples[threadId] = outputSample;
         }
-
+        _ReservoirSamples[threadId] = outputSample;
         //_FirstHitSurfaces[threadId] = hitCur;
     }
     else if (_ENVIRONMENT_MAP_ENABLE)

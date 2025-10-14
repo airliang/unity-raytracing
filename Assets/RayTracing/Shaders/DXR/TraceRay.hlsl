@@ -8,6 +8,8 @@
 #include "sampleAreaLights.hlsl"
 #include "environment_lighting.hlsl"
 
+GLOBAL_RESOURCE(RWStructuredBuffer<HitSurface>, _HitSurfaces, u2);
+
 
 float origin() { return 1.0f / 32.0f; }
 float float_scale() { return 1.0f / 65536.0f; }
@@ -90,7 +92,7 @@ inline void GenerateCameraRay(out float3 origin, out float3 direction)
     float2 screenPos = xy / DispatchRaysDimensions().xy * 2.0f - 1.0f;
 
     // Un project the pixel coordinate into a ray.
-    float4 world = mul(_InvCameraViewProj, float4(screenPos, 0, 1));
+    float4 world = mul(_InvViewProj, float4(screenPos, 0, 1));
 
     world.xyz /= world.w;
     origin = _CameraPosWS.xyz;
@@ -320,7 +322,7 @@ float3 MIS_BSDF(HitSurface hitSurface, Material material, uint threadId, RayCone
         if (payLoad.hitResult > HIT_MISS)
         {
             pathVertex.found = 1;
-            pathVertex.nextHit = payLoad.hitSurface;
+            pathVertex.nextHit = _HitSurfaces[threadId];//payLoad.hitSurface;
             pathVertex.nextMaterial = _Materials[threadId];//payLoad.material;
             
             if (payLoad.hitResult == HIT_LIGHT)
@@ -483,7 +485,7 @@ float3 PathLi(RayDesc ray, uint threadId, uint2 id, inout RNG rng)
             foundIntersect = payLoad.hitResult > 0;
             if (foundIntersect)
             {
-                hitCur = payLoad.hitSurface;
+                hitCur = _HitSurfaces[threadId];//payLoad.hitSurface;
                 material = _Materials[threadId];//payLoad.material;
             }
         }

@@ -10,4 +10,5 @@ public class RestirResource : ScriptableObject
     public UnityEngine.Rendering.RayTracingShader GenerateSamples;
     public ComputeShader SpatialReuse;
     public UnityEngine.Rendering.RayTracingShader PixelShading;
+    public ComputeShader ImageReconstruction;
 }

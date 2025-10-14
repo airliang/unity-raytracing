@@ -30,7 +30,7 @@ half3 TracingDebug(uint id, RayDesc ray, int view, float2 rayCone, float cameraC
     bool foundIntersect = payLoad.hitResult > 0;
     if (foundIntersect)
     {
-        hitCur = payLoad.hitSurface;
+        hitCur = _HitSurfaces[payLoad.threadID];//payLoad.hitSurface;
         material = _Materials[payLoad.threadID];
 
         switch (view)

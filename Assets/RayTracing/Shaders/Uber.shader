@@ -166,7 +166,6 @@ Shader "RayTracing/Uber"
 
                 Interaction intersect = GetHitInteraction(primIndex, attributeData.barycentrics, WorldRayDirection(), hitPos,
                     ObjectToWorld3x4(), WorldToObject3x4());
-                //payLoad.hitSurface = GetHitSurface(primIndex, attributeData.barycentrics, ObjectToWorld3x4(), WorldToObject3x4());
     
                 TextureSampleInfo texLod;
                 texLod.cosine = dot(intersect.wo, intersect.normal);
@@ -178,8 +177,8 @@ Shader "RayTracing/Uber"
                 float mipmap = ComputeTextureLOD(texLod);
                 float4 texColor = _MainTex.SampleLevel(s_linear_repeat_sampler, TRANSFORM_TEX(intersect.uv, _MainTex), mipmap);
     
-                payLoad.hitSurface = ConvertFromInteraction(intersect);
-                //payLoad.hitSurface.hitT = hitT;
+                HitSurface hitSurface = ConvertFromInteraction(intersect);
+                _HitSurfaces[payLoad.threadID] = hitSurface;
     
                 Material material = (Material) 0;
                 material.materialType = _MaterialType;

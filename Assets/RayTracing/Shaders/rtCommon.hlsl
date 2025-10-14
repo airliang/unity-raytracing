@@ -8,7 +8,8 @@ CBUFFER_START(CameraBuffer)
 int _InstBVHAddr;
 int _BVHNodesNum;
 int _FramesNum;
-float4x4 _InvCameraViewProj;
+float4x4 _InvViewProj;
+float4x4 _PreframeInvViewProj;
 float4x4 _RasterToCamera;
 float4x4 _CameraToWorld;
 float4x4 _WorldToRaster;
